@@ -1,49 +1,119 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
 import { invoke } from "@tauri-apps/api/core";
+import { useState } from "react";
 import "./App.css";
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
+  const [activeModifiers, setActiveModifiers] = useState<string[]>([]);
+  const rows = [
+    ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
+    ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
+    ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
+    ["z", "x", "c", "v", "b", "n", "m"],
+    ["Backspace", "Enter"],
+  ];
+
+  const shiftMap: Record<string, string> = {
+    "1": "!",
+    "2": "@",
+    "3": "#",
+    "4": "$",
+    "5": "%",
+    "6": "^",
+    "7": "&",
+    "8": "*",
+    "9": "(",
+    "0": ")",
+  };    
+
+  const getDisplayKey = (key: string) => {
+    if (key === "Backspace" || key === "Enter") return key;
+    if (!activeModifiers.includes("Shift")) return key;
+    if (shiftMap[key]) return shiftMap[key];
+    return key.toUpperCase();
+  };
+
+  const handleKey = (key: string) => {
+    if (["Ctrl", "Shift", "Alt"].includes(key)) {
+      setActiveModifiers((prev) =>
+        prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+      );
+    } else {
+      // Send the displayed key (e.g. "!" instead of "1" if Shift is active)
+      // We also pass the modifiers so the backend can press them (e.g. for shortcuts)
+      let keyToSend = getDisplayKey(key);
+      if (key === "Enter") keyToSend = "Return";
+
+      invoke("send_key", {
+        key: keyToSend,
+        modifiers: activeModifiers,
+      });
+    }
+  };
 
   return (
     <main className="container">
-      <h1>Welcome to Tauri + React</h1>
-
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+      <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+        {rows.map((row, i) => (
+          <div
+            key={i}
+            style={{ display: "flex", justifyContent: "center", gap: "5px" }}
+          >
+            {row.map((key) => {
+              const displayKey = getDisplayKey(key);
+              return (
+                <button
+                  key={key}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleKey(key)}
+                  style={{
+                    width: "60px",
+                    height: "40px",
+                    backgroundColor: activeModifiers.includes(key)
+                      ? "#666"
+                      : "",
+                    color: activeModifiers.includes(key) ? "white" : "",
+                  }}
+                >
+                  {displayKey}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+        <div style={{ display: "flex", justifyContent: "center", gap: "5px" }}>
+          {["Ctrl", "Shift", "Alt"].map((key) => (
+            <button
+              key={key}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => handleKey(key)}
+              style={{
+                width: "40px",
+                height: "40px",
+                backgroundColor: activeModifiers.includes(key) ? "#666" : "",
+                color: activeModifiers.includes(key) ? "white" : "",
+              }}
+            >
+              {key}
+            </button>
+          ))}
+        </div>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            marginTop: "5px",
+          }}
+        >
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => handleKey(" ")}
+            style={{ width: "200px", height: "40px" }}
+          >
+            Space
+          </button>
+        </div>
       </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
     </main>
   );
 }
