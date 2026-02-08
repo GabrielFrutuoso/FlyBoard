@@ -7,10 +7,9 @@ function App() {
   const [activeModifiers, setActiveModifiers] = useState<string[]>([]);
   const rows = [
     ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
-    ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
-    ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
-    ["z", "x", "c", "v", "b", "n", "m"],
-    ["Backspace", "Enter"],
+    ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "{"],
+    ["a", "s", "d", "f", "g", "h", "j", "k", "l", "}"],
+    ["Shift", "z", "x", "c", "v", "b", "n", "m", "Shift"],
   ];
 
   const shiftMap: Record<string, string> = {
@@ -24,6 +23,8 @@ function App() {
     "8": "*",
     "9": "(",
     "0": ")",
+    "p": "{",
+    "l": "}"
   };    
 
   const getDisplayKey = (key: string) => {
@@ -39,8 +40,6 @@ function App() {
         prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
       );
     } else {
-      // Send the displayed key (e.g. "!" instead of "1" if Shift is active)
-      // We also pass the modifiers so the backend can press them (e.g. for shortcuts)
       let keyToSend = getDisplayKey(key);
       if (key === "Enter") keyToSend = "Return";
 
@@ -52,28 +51,24 @@ function App() {
   };
 
   return (
-    <main className="container">
-      <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+    <main className="flex justify-center items-center h-screen bg-zinc-950">
+      <div className="flex flex-col justify-center gap-1">
         {rows.map((row, i) => (
           <div
+            className="w-full flex justify-center items-center gap-1"
             key={i}
-            style={{ display: "flex", justifyContent: "center", gap: "5px" }}
           >
             {row.map((key) => {
               const displayKey = getDisplayKey(key);
+              const isActive = activeModifiers.includes(key);
               return (
                 <button
+                  className={`w-[60px] h-10 text-white transition-colors rounded-md ${
+                    isActive ? "bg-zinc-600" : "bg-zinc-900 hover:bg-zinc-800"
+                  }`}
                   key={key}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleKey(key)}
-                  style={{
-                    width: "60px",
-                    height: "40px",
-                    backgroundColor: activeModifiers.includes(key)
-                      ? "#666"
-                      : "",
-                    color: activeModifiers.includes(key) ? "white" : "",
-                  }}
                 >
                   {displayKey}
                 </button>
@@ -81,34 +76,28 @@ function App() {
             })}
           </div>
         ))}
-        <div style={{ display: "flex", justifyContent: "center", gap: "5px" }}>
-          {["Ctrl", "Shift", "Alt"].map((key) => (
-            <button
-              key={key}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => handleKey(key)}
-              style={{
-                width: "40px",
-                height: "40px",
-                backgroundColor: activeModifiers.includes(key) ? "#666" : "",
-                color: activeModifiers.includes(key) ? "white" : "",
-              }}
-            >
-              {key}
-            </button>
-          ))}
-        </div>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            marginTop: "5px",
-          }}
-        >
+        {/* <div className="flex justify-center gap-1.5">
+          {["Ctrl", "Alt"].map((key) => {
+            const isActive = activeModifiers.includes(key);
+            return (
+              <button
+                key={key}
+                className={`w-10 h-10 text-white transition-colors ${
+                  isActive ? "bg-zinc-600" : "bg-zinc-900 hover:bg-zinc-800"
+                }`}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleKey(key)}
+              >
+                {key}
+              </button>
+            );
+          })}
+        </div> */}
+        <div className="flex justify-center">
           <button
+            className="w-[75%] h-10 bg-zinc-900 text-white hover:bg-zinc-800 transition-colors"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => handleKey(" ")}
-            style={{ width: "200px", height: "40px" }}
+            onClick={() => handleKey("return")}
           >
             Space
           </button>
