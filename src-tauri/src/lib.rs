@@ -13,8 +13,6 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 #[cfg(target_os = "linux")]
 use enigo::{Enigo, Key, KeyboardControllable};
 #[cfg(target_os = "linux")]
-use tauri::platform::linux::WindowExtLinux;
-#[cfg(target_os = "linux")]
 use gtk::prelude::*;
 
 #[tauri::command]
@@ -160,7 +158,7 @@ pub fn run() {
             {
                 use tauri::Manager;
                 if let Some(window) = app.get_webview_window("main") {
-                    let gtk_window = window.gtk_window().unwrap();
+                    let gtk_window = window.gtk_window();
                     gtk_window.set_accept_focus(false);
                 }
             }
