@@ -159,7 +159,7 @@ pub fn run() {
                 use tauri::Manager;
                 if let Some(window) = app.get_webview_window("main") {
                     let gtk_window = window.gtk_window();
-                    gtk_window.set_accept_focus(false);
+                    gtk_window?.set_accept_focus(false);
                 }
             }
             Ok(())
