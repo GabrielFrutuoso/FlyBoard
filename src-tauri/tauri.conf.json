@@ -13,8 +13,9 @@
     "windows": [
       {
         "title": "flyboard",
-        "width": 800,
-        "height": 600,
+        "width": 684,
+        "height": 228,
+        "resizable": false,
         "alwaysOnTop": true
       }
     ],
