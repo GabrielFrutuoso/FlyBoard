@@ -36,6 +36,14 @@ pub enum NamedKey {
     Backspace,
     Space,
     Tab,
+    Capslock,
+    Escape,
+    Up,
+    Down,
+    Left,
+    Right,
+    /// F1 through F12.
+    Function(u8),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -60,7 +68,19 @@ impl KeyId {
             "Backspace" => NamedKey::Backspace,
             "Space" => NamedKey::Space,
             "Tab" => NamedKey::Tab,
-            _ => return None,
+            "Caps" => NamedKey::Capslock,
+            "Esc" => NamedKey::Escape,
+            "Up" => NamedKey::Up,
+            "Down" => NamedKey::Down,
+            "Left" => NamedKey::Left,
+            "Right" => NamedKey::Right,
+            _ => {
+                let number = id.strip_prefix('F')?.parse::<u8>().ok()?;
+                if !(1..=12).contains(&number) {
+                    return None;
+                }
+                NamedKey::Function(number)
+            }
         }))
     }
 }

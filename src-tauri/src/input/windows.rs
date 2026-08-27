@@ -3,7 +3,8 @@ use super::{push_unique, KeyId, Modifier, NamedKey};
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
     GetKeyboardLayout, MapVirtualKeyExW, SendInput, VkKeyScanExW, INPUT, INPUT_0, INPUT_KEYBOARD,
     KEYBDINPUT, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE, VIRTUAL_KEY, VK_APPS,
-    VK_BACK, VK_DELETE, VK_DIVIDE, VK_DOWN, VK_END, VK_HOME, VK_INSERT, VK_LCONTROL, VK_LEFT,
+    VK_BACK, VK_CAPITAL, VK_DELETE, VK_DIVIDE, VK_DOWN, VK_END, VK_ESCAPE, VK_F1, VK_HOME,
+    VK_INSERT, VK_LCONTROL, VK_LEFT,
     VK_LMENU, VK_LSHIFT, VK_LWIN, VK_NEXT, VK_NUMLOCK, VK_PRIOR, VK_RCONTROL, VK_RETURN, VK_RIGHT,
     VK_RMENU, VK_RWIN, VK_SPACE, VK_TAB, VK_UP,
 };
@@ -135,6 +136,14 @@ pub fn send(key: KeyId, modifiers: &[Modifier]) -> Result<(), String> {
             NamedKey::Backspace => VK_BACK,
             NamedKey::Space => VK_SPACE,
             NamedKey::Tab => VK_TAB,
+            NamedKey::Capslock => VK_CAPITAL,
+            NamedKey::Escape => VK_ESCAPE,
+            NamedKey::Up => VK_UP,
+            NamedKey::Down => VK_DOWN,
+            NamedKey::Left => VK_LEFT,
+            NamedKey::Right => VK_RIGHT,
+            // VK_F1 through VK_F12 are contiguous.
+            NamedKey::Function(n) => VK_F1 + u16::from(n) - 1,
         }),
         KeyId::Modifier(modifier) => Some(modifier_vk(modifier)),
         KeyId::Char(c) => resolve_char(c, hkl, &mut modifiers),
