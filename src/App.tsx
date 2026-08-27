@@ -1,5 +1,6 @@
 import "./App.css";
 import { Key } from "./components/Key";
+import Header from "./components/TitleBar";
 import { useKeyboard } from "./utils/useKeyboard";
 
 const rows = [
@@ -29,8 +30,9 @@ function App() {
   const { resolve, getLabel, isLatched, handleKey } = useKeyboard();
 
   return (
-    <main className="h-screen w-screen bg-zinc-950 p-1">
-      <div className="flex h-full w-full flex-col gap-1 text-[clamp(0.75rem,2.4vh,1.125rem)]">
+    <main className="flex h-screen w-screen flex-col bg-zinc-950 p-1">
+      <Header />
+      <div className="flex min-h-0 w-full flex-1 flex-col gap-1 text-[clamp(0.75rem,2.4vh,1.125rem)]">
         {rows.map((row, i) => (
           <div className="flex w-full min-h-0 flex-1 gap-1" key={i}>
             {row.map((key, index) => {
