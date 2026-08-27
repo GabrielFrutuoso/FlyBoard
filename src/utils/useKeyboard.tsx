@@ -52,7 +52,9 @@ export function useKeyboard() {
     };
   }, []);
 
-  const shiftActive = activeModifiers.includes("Shift");
+  // A physically held Shift counts too, so the labels match what would actually be typed.
+  const shiftActive =
+    activeModifiers.includes("Shift") || pressedKeys.has("Shift");
 
   const send = (key: string, modifiers: Modifier[]) =>
     invoke("send_key", { key: toKeyId(key), modifiers }).catch(console.error);
