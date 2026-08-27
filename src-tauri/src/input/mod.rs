@@ -3,6 +3,9 @@ mod windows;
 #[cfg(target_os = "windows")]
 use windows as platform;
 
+#[cfg(target_os = "windows")]
+pub mod hook;
+
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "linux")]
@@ -85,9 +88,19 @@ impl KeyId {
     }
 }
 
-fn push_unique(modifiers: &mut Vec<Modifier>, modifier: Modifier) {
-    if !modifiers.contains(&modifier) {
+fn push_unique(modifiers: &mut Vec<Modifier>, modifier: Modifier) {    if !modifiers.contains(&modifier) {
         modifiers.push(modifier);
+    }
+}
+
+pub fn caps_lock() -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        platform::caps_lock_on()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        false
     }
 }
 

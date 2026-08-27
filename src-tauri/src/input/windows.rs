@@ -1,29 +1,54 @@
 use super::{push_unique, KeyId, Modifier, NamedKey};
 
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-    GetKeyboardLayout, MapVirtualKeyExW, SendInput, VkKeyScanExW, INPUT, INPUT_0, INPUT_KEYBOARD,
+    GetKeyState, GetKeyboardLayout, MapVirtualKeyExW, SendInput, VkKeyScanExW,
+    INPUT, INPUT_0, INPUT_KEYBOARD,
     KEYBDINPUT, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE, VIRTUAL_KEY, VK_APPS,
     VK_BACK, VK_CAPITAL, VK_DELETE, VK_DIVIDE, VK_DOWN, VK_END, VK_ESCAPE, VK_F1, VK_HOME,
     VK_INSERT, VK_LCONTROL, VK_LEFT,
     VK_LMENU, VK_LSHIFT, VK_LWIN, VK_NEXT, VK_NUMLOCK, VK_PRIOR, VK_RCONTROL, VK_RETURN, VK_RIGHT,
     VK_RMENU, VK_RWIN, VK_SPACE, VK_TAB, VK_UP,
 };
+use windows_sys::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
 use windows_sys::Win32::UI::TextServices::HKL;
 use windows_sys::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
 
 /// Not exported by windows-sys 0.52.
 const MAPVK_VK_TO_VSC_EX: u32 = 4;
 
-/// The layout of the window that will receive the input, which may differ from ours.
-fn foreground_layout() -> HKL {
+/// Stamped on every event we synthesize so the keyboard hook can tell them from real presses.
+pub(super) const INJECTED_TAG: usize = 0x464C_5942;
+
+fn foreground_thread() -> u32 {
     unsafe {
         let hwnd = GetForegroundWindow();
-        let thread = if hwnd == 0 {
+        if hwnd == 0 {
             0
         } else {
             GetWindowThreadProcessId(hwnd, std::ptr::null_mut())
-        };
-        GetKeyboardLayout(thread)
+        }
+    }
+}
+
+/// The layout of the window that will receive the input, which may differ from ours.
+pub(super) fn foreground_layout() -> HKL {
+    unsafe { GetKeyboardLayout(foreground_thread()) }
+}
+
+/// GetKeyState reports the calling thread's view, so borrow the foreground thread's input state.
+pub fn caps_lock_on() -> bool {
+    unsafe {
+        let current = GetCurrentThreadId();
+        let target = foreground_thread();
+        let attached =
+            target != 0 && target != current && AttachThreadInput(current, target, 1) != 0;
+
+        let enabled = GetKeyState(VK_CAPITAL as i32) & 1 != 0;
+
+        if attached {
+            AttachThreadInput(current, target, 0);
+        }
+        enabled
     }
 }
 
@@ -72,7 +97,7 @@ fn keyboard_input(vk: VIRTUAL_KEY, scan: u16, flags: u32) -> INPUT {
                 wScan: scan,
                 dwFlags: flags,
                 time: 0,
-                dwExtraInfo: 0,
+                dwExtraInfo: INJECTED_TAG,
             },
         },
     }

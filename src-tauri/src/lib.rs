@@ -13,6 +13,11 @@ fn send_key(key: String, modifiers: Vec<String>) -> Result<(), String> {
     input::send(&key, &modifiers)
 }
 
+#[tauri::command]
+fn caps_lock() -> bool {
+    input::caps_lock()
+}
+
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -28,6 +33,9 @@ pub fn run() {
                         SetWindowLongPtrW(hwnd as _, GWL_EXSTYLE, ex_style | WS_EX_NOACTIVATE as isize);
                     }
                 }
+                if let Err(error) = input::hook::install(app.handle().clone()) {
+                    eprintln!("physical key feedback disabled: {error}");
+                }
             }
             #[cfg(target_os = "linux")]
             {
@@ -40,7 +48,7 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![send_key])
+        .invoke_handler(tauri::generate_handler![send_key, caps_lock])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
