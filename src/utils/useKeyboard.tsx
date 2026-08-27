@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useState } from "react";
+import { listen } from "@tauri-apps/api/event";
+import { useEffect, useRef, useState } from "react";
 import {
   FN_MAP,
   isCharKey,
@@ -16,13 +17,45 @@ export function useKeyboard() {
   const [unusedModifiers, setUnusedModifiers] = useState<Modifier[]>([]);
   const [capsActive, setCapsActive] = useState(false);
   const [fnActive, setFnActive] = useState(false);
+  const [pressedKeys, setPressedKeys] = useState<Set<string>>(new Set());
+  const pressedRef = useRef<Set<string>>(new Set());
+
+  // The OS lock is the source of truth; tracking it locally would drift out of sync.
+  const syncCapsLock = () => {
+    invoke<boolean>("caps_lock").then(setCapsActive).catch(console.error);
+  };
+
+  useEffect(() => {
+    let stop: (() => void) | undefined;
+    let cancelled = false;
+
+    syncCapsLock();
+
+    listen<{ key: string; down: boolean }>("physical-key", ({ payload }) => {
+      const { key, down } = payload;
+
+      if (down) pressedRef.current.add(key);
+      else pressedRef.current.delete(key);
+
+      // Read on release: at hook time the lock hasn't flipped yet.
+      if (key === "Caps" && !down) syncCapsLock();
+      setPressedKeys(new Set(pressedRef.current));
+    }).then((unlisten) => {
+      // StrictMode remounts before this resolves; without the guard a second listener survives.
+      if (cancelled) unlisten();
+      else stop = unlisten;
+    });
+
+    return () => {
+      cancelled = true;
+      stop?.();
+    };
+  }, []);
 
   const shiftActive = activeModifiers.includes("Shift");
-  const hasNonShiftModifier = activeModifiers.some((m) => m !== "Shift");
 
-  const send = (key: string, modifiers: Modifier[]) => {
+  const send = (key: string, modifiers: Modifier[]) =>
     invoke("send_key", { key: toKeyId(key), modifiers }).catch(console.error);
-  };
 
   // Fn swaps the number row for the function row, like a laptop keyboard.
   const resolve = (key: string) =>
@@ -33,13 +66,6 @@ export function useKeyboard() {
     if (isLetter(key))
       return shiftActive !== capsActive ? key.toUpperCase() : key;
     return shiftActive ? shifted(key) : key;
-  };
-
-  const getCharToSend = (key: string) => {
-    if (!isCharKey(key)) return key;
-    // Shortcuts use the base character: Ctrl+1 rather than Ctrl+!, and Caps must not force Ctrl+Shift+C.
-    if (hasNonShiftModifier) return key;
-    return getLabel(key);
   };
 
   const toggleModifier = (modifier: Modifier) => {
@@ -60,9 +86,12 @@ export function useKeyboard() {
     return isModifier(key) && activeModifiers.includes(key);
   };
 
+  const isPressed = (key: string) => pressedKeys.has(key);
+
   const handleKey = (key: string) => {
     if (key === "Caps") {
-      setCapsActive((prev) => !prev);
+      // Toggle the real lock, then read back what the OS actually settled on.
+      send("Caps", []).then(syncCapsLock);
       return;
     }
     if (key === "Fn") {
@@ -73,9 +102,10 @@ export function useKeyboard() {
       toggleModifier(key);
       return;
     }
-    send(getCharToSend(key), activeModifiers);
+    // Always the base character: Shift rides along as a modifier and the OS applies its own Caps Lock.
+    send(key, activeModifiers);
     setUnusedModifiers([]);
   };
 
-  return { resolve, getLabel, isLatched, handleKey };
+  return { resolve, getLabel, isLatched, isPressed, handleKey };
 }

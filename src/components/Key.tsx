@@ -16,6 +16,7 @@ interface KeyProps {
   units?: number;
   className?: string;
   isActive?: boolean;
+  isPressed?: boolean;
 }
 
 // Sized in em so icons track the container's fluid font size.
@@ -53,13 +54,14 @@ export const Key = ({
   units = 1,
   className = "",
   isActive = false,
+  isPressed = false,
 }: KeyProps) => {
   const icon = getKeyIcon(label);
 
   return (
     <button
       className={`flex h-full min-w-0 shrink basis-0 items-center justify-center overflow-hidden rounded-sm border border-zinc-800 text-zinc-200 transition-colors hover:bg-zinc-700 ${className} ${
-        isActive ? "bg-zinc-700" : ""
+        isPressed ? "bg-zinc-700" : isActive ? "bg-zinc-700" : ""
       }`}
       style={{ flexGrow: units }}
       onMouseDown={(e) => e.preventDefault()}
