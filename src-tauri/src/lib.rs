@@ -14,6 +14,11 @@ fn send_key(key: String, modifiers: Vec<String>) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn send_text(text: String) -> Result<(), String> {
+    input::send_text(&text)
+}
+
+#[tauri::command]
 fn caps_lock() -> bool {
     input::caps_lock()
 }
@@ -48,7 +53,7 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![send_key, caps_lock])
+        .invoke_handler(tauri::generate_handler![send_key, send_text, caps_lock])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

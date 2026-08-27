@@ -15,6 +15,11 @@ fn modifier_key(modifier: Modifier) -> Key {
     }
 }
 
+pub fn send_text(text: &str) -> Result<(), String> {
+    let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
+    enigo.text(text).map_err(|e| e.to_string())
+}
+
 pub fn send(key: KeyId, modifiers: &[Modifier]) -> Result<(), String> {
     let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
 

@@ -202,10 +202,27 @@ pub fn send(key: KeyId, modifiers: &[Modifier]) -> Result<(), String> {
         (None, _) => return Err("unsupported key".into()),
     }
 
+    dispatch(inputs)
+}
+
+/// Types the exact characters, bypassing the layout entirely.
+pub fn send_text(text: &str) -> Result<(), String> {
+    let mut inputs = Vec::new();
+    for unit in text.encode_utf16() {
+        inputs.push(unicode_event(unit, false));
+        inputs.push(unicode_event(unit, true));
+    }
+    dispatch(inputs)
+}
+
+fn dispatch(mut inputs: Vec<INPUT>) -> Result<(), String> {
+    if inputs.is_empty() {
+        return Ok(());
+    }
     let sent = unsafe {
         SendInput(
             inputs.len() as u32,
-            inputs.as_ptr(),
+            inputs.as_mut_ptr(),
             std::mem::size_of::<INPUT>() as i32,
         )
     };

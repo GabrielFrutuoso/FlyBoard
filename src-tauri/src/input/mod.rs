@@ -93,6 +93,17 @@ fn push_unique(modifiers: &mut Vec<Modifier>, modifier: Modifier) {    if !modif
     }
 }
 
+pub fn send_text(text: &str) -> Result<(), String> {
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
+    return platform::send_text(text);
+
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+    {
+        let _ = text;
+        Err("text injection is not supported on this platform".into())
+    }
+}
+
 pub fn caps_lock() -> bool {
     #[cfg(target_os = "windows")]
     {
