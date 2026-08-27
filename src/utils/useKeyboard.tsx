@@ -5,6 +5,7 @@ import {
   FN_MAP,
   isCharKey,
   isModifier,
+  MODIFIERS,
   shifted,
   toKeyId,
   type Modifier,
@@ -52,10 +53,15 @@ export function useKeyboard() {
     };
   }, []);
 
-  // A physically held Shift counts too, so the labels match what would actually be typed.
-  const shiftActive =
-    activeModifiers.includes("Shift") || pressedKeys.has("Shift");
-  const hasNonShiftModifier = activeModifiers.some((m) => m !== "Shift");
+  // A physically held modifier counts alongside a latched virtual one, so Ctrl (keyboard) + C (VK) works.
+  const physicalModifiers = MODIFIERS.filter((m) => pressedKeys.has(m));
+  const effectiveModifiers = [
+    ...activeModifiers,
+    ...physicalModifiers.filter((m) => !activeModifiers.includes(m)),
+  ];
+
+  const shiftActive = effectiveModifiers.includes("Shift");
+  const hasNonShiftModifier = effectiveModifiers.some((m) => m !== "Shift");
 
   const send = (key: string, modifiers: Modifier[]) =>
     invoke("send_key", { key: toKeyId(key), modifiers }).catch(console.error);
@@ -113,7 +119,7 @@ export function useKeyboard() {
       return;
     }
     // Named keys and shortcuts still need real virtual keys.
-    send(key, activeModifiers);
+    send(key, effectiveModifiers);
     setUnusedModifiers([]);
   };
 
