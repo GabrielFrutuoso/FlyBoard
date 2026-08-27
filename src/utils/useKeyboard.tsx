@@ -55,6 +55,7 @@ export function useKeyboard() {
   // A physically held Shift counts too, so the labels match what would actually be typed.
   const shiftActive =
     activeModifiers.includes("Shift") || pressedKeys.has("Shift");
+  const hasNonShiftModifier = activeModifiers.some((m) => m !== "Shift");
 
   const send = (key: string, modifiers: Modifier[]) =>
     invoke("send_key", { key: toKeyId(key), modifiers }).catch(console.error);
@@ -104,7 +105,14 @@ export function useKeyboard() {
       toggleModifier(key);
       return;
     }
-    // Always the base character: Shift rides along as a modifier and the OS applies its own Caps Lock.
+    // Plain characters go in as text: the glyph may sit on a key that Shift alone
+    // can't reach (ABNT2 puts ? on its own key, not on Shift+/).
+    if (isCharKey(key) && !hasNonShiftModifier) {
+      invoke("send_text", { text: getLabel(key) }).catch(console.error);
+      setUnusedModifiers([]);
+      return;
+    }
+    // Named keys and shortcuts still need real virtual keys.
     send(key, activeModifiers);
     setUnusedModifiers([]);
   };
