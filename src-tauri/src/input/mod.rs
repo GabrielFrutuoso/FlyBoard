@@ -3,6 +3,9 @@ mod windows;
 #[cfg(target_os = "windows")]
 use windows as platform;
 
+#[cfg(target_os = "windows")]
+pub mod hook;
+
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "linux")]
@@ -85,9 +88,30 @@ impl KeyId {
     }
 }
 
-fn push_unique(modifiers: &mut Vec<Modifier>, modifier: Modifier) {
-    if !modifiers.contains(&modifier) {
+fn push_unique(modifiers: &mut Vec<Modifier>, modifier: Modifier) {    if !modifiers.contains(&modifier) {
         modifiers.push(modifier);
+    }
+}
+
+pub fn send_text(text: &str) -> Result<(), String> {
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
+    return platform::send_text(text);
+
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+    {
+        let _ = text;
+        Err("text injection is not supported on this platform".into())
+    }
+}
+
+pub fn caps_lock() -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        platform::caps_lock_on()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        false
     }
 }
 

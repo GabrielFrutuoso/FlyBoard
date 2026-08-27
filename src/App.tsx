@@ -27,7 +27,7 @@ const KEY_UNITS: Record<string, number> = {
 };
 
 function App() {
-  const { resolve, getLabel, isLatched, handleKey } = useKeyboard();
+  const { resolve, getLabel, isLatched, isPressed, handleKey } = useKeyboard();
 
   return (
     <main className="flex h-screen w-screen flex-col bg-zinc-950 p-1">
@@ -44,6 +44,7 @@ function App() {
                   onClick={() => handleKey(effective)}
                   units={KEY_UNITS[key] ?? 1}
                   isActive={isLatched(key)}
+                  isPressed={isPressed(effective)}
                 />
               );
             })}
