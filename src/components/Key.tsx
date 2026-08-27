@@ -1,4 +1,10 @@
-import { ArrowBigUp, Delete, Space, CornerDownLeft } from "lucide-react";
+import {
+  ArrowBigUp,
+  Delete,
+  Space,
+  CornerDownLeft,
+  ArrowRightToLine,
+} from "lucide-react";
 
 interface KeyProps {
   label: string;
@@ -18,6 +24,8 @@ const getKeyIcon = (label: string) => {
       return <Space size={18} />;
     case "Enter":
       return <CornerDownLeft size={18} />;
+    case "Tab":
+      return <ArrowRightToLine size={18} />;
     default:
       return null;
   }

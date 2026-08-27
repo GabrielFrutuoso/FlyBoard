@@ -2,62 +2,67 @@ import { invoke } from "@tauri-apps/api/core";
 import { useState } from "react";
 import "./App.css";
 import { Key } from "./components/Key";
+import { isCharKey, isModifier, shifted, toKeyId, type Modifier } from "./keys";
+
+const rows = [
+  ["'", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "="],
+  ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "[", "Backspace"],
+  ["a", "s", "d", "f", "g", "h", "j", "k", "l", ";", "]", "Enter"],
+  ["Shift", "z", "x", "c", "v", "b", "n", "m", ",", ".", "/"],
+  ["Ctrl", "Win", "Alt", "Space", "AltGr", "Tab"],
+];
+
+const WIDE_KEYS = new Set([
+  "Shift",
+  "Enter",
+  "Backspace",
+  "Ctrl",
+  "Alt",
+  "AltGr",
+  "Win",
+  "Tab",
+]);
 
 function App() {
-  const [activeModifiers, setActiveModifiers] = useState<string[]>([]);
-  const rows = [
-    ["'", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "="],
-    ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "[", "Backspace"],
-    ["a", "s", "d", "f", "g", "h", "j", "k", "l", ";", "]", "Enter"],
-    ["z", "x", "c", "v", "b", "n", "m", ",", ".", "/"],
-    ["Shift", "z", "x", "c", "v", "b", "n", "m"],
-  ];
+  const [activeModifiers, setActiveModifiers] = useState<Modifier[]>([]);
+  // Modifiers latched but not yet combined with anything, so they can fire as a lone tap.
+  const [unusedModifiers, setUnusedModifiers] = useState<Modifier[]>([]);
 
-  const shiftMap: Record<string, string> = {
-    "1": "!",
-    "2": "@",
-    "3": "#",
-    "4": "$",
-    "5": "%",
-    "6": "^",
-    "7": "&",
-    "8": "*",
-    "9": "(",
-    "0": ")",
-    "'": "`",
-    "[": "{",
-    "]": "}",
-    ";": ":",
-    ",": "<",
-    ".": ">",
-    "/": "?",
-    "-": "_",
-    "=": "+",
+  const shiftActive = activeModifiers.includes("Shift");
+  const hasNonShiftModifier = activeModifiers.some((m) => m !== "Shift");
+
+  const send = (key: string, modifiers: Modifier[]) => {
+    invoke("send_key", { key: toKeyId(key), modifiers }).catch(console.error);
   };
 
-  const getDisplayKey = (key: string) => {
-    if (key === "Backspace" || key === "Enter" || key === " ") return key;
-    if (!activeModifiers.includes("Shift")) return key;
-    if (shiftMap[key]) return shiftMap[key];
-    return key.toUpperCase();
+  const getLabel = (key: string) =>
+    isCharKey(key) && shiftActive ? shifted(key) : key;
+
+  // With Ctrl/Alt/Win latched, apps expect the unshifted character (Ctrl+1, not Ctrl+!).
+  const getCharToSend = (key: string) =>
+    isCharKey(key) && shiftActive && !hasNonShiftModifier ? shifted(key) : key;
+
+  const toggleModifier = (modifier: Modifier) => {
+    if (activeModifiers.includes(modifier)) {
+      // Latched then released without being used: tap it, so Win opens Start and Alt opens the menu bar.
+      if (unusedModifiers.includes(modifier)) send(modifier, []);
+      setActiveModifiers((prev) => prev.filter((m) => m !== modifier));
+      setUnusedModifiers((prev) => prev.filter((m) => m !== modifier));
+    } else {
+      setActiveModifiers((prev) => [...prev, modifier]);
+      setUnusedModifiers((prev) => [...prev, modifier]);
+    }
   };
 
   const handleKey = (key: string) => {
-    if (["Shift"].includes(key)) {
-      setActiveModifiers((prev) =>
-        prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
-      );
-    } else {
-      let keyToSend = getDisplayKey(key);
-      if (key === "Enter") keyToSend = "Return";
-
-      invoke("send_key", {
-        key: keyToSend,
-        modifiers: activeModifiers,
-      });
+    if (isModifier(key)) {
+      toggleModifier(key);
+      return;
     }
+    send(getCharToSend(key), activeModifiers);
+    setUnusedModifiers([]);
   };
-  
+
   return (
     <main className="flex justify-center items-center h-screen bg-zinc-950">
       <div className="flex flex-col justify-center gap-1">
@@ -66,29 +71,23 @@ function App() {
             className="w-full flex justify-center items-center gap-1"
             key={i}
           >
-            {row.map((key, index) => {
-              const displayKey = getDisplayKey(key);
-              const isActive = activeModifiers.includes(key);
-              return (
-                <Key
-                  key={`${key}-${index}`}
-                  label={displayKey}
-                  onClick={() => handleKey(key)}
-                  className={`${key === "Shift" || key === "Enter" ? "w-[3.75rem]" : "w-12"} h-8`}
-                  isActive={isActive}
-                />
-              );
-            })}
+            {row.map((key, index) => (
+              <Key
+                key={`${key}-${index}`}
+                label={getLabel(key)}
+                onClick={() => handleKey(key)}
+                className={`${
+                  key === "Space"
+                    ? "w-56"
+                    : WIDE_KEYS.has(key)
+                      ? "w-[3.75rem]"
+                      : "w-12"
+                } h-8`}
+                isActive={isModifier(key) && activeModifiers.includes(key)}
+              />
+            ))}
           </div>
         ))}
-
-        <div className="flex justify-center">
-          <Key
-            label="Space"
-            onClick={() => handleKey(" ")}
-            className="w-[55%] h-8"
-          />
-        </div>
       </div>
     </main>
   );
