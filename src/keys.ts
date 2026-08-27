@@ -66,4 +66,19 @@ export const SHIFT_MAP: Record<string, string> = {
   "=": "+",
 };
 
+// Relative widths, chosen so every row adds up to the same total.
+export const KEY_UNITS: Record<string, number> = {
+  Backspace: 2,
+  Enter: 2,
+  Shift: 2,
+  Space: 5.5,
+  Ctrl: 1.5,
+  Win: 1.5,
+  Alt: 1.5,
+  AltGr: 1.5,
+  Fn: 1.5,
+  Tab: 1.5,
+  Caps: 1.75,
+};
+
 export const shifted = (key: string) => SHIFT_MAP[key] ?? key.toUpperCase();
