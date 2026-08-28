@@ -31,25 +31,19 @@ jobs:
         with:
           node-version: 20
 
-      - name: Generate release notes
-        run: node scripts/extract-release-notes.js "${{ github.ref_name }}" > release_notes.md
-
       - name: Create Release
         id: create-release
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs');
-            const releaseNotes = fs.readFileSync('release_notes.md', 'utf8');
             const { data } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: context.ref.replace('refs/tags/', ''),
               name: `Tandem ${context.ref.replace('refs/tags/', '')}`,
-              body: releaseNotes,
               draft: true,
               prerelease: false,
-              generate_release_notes: false
+              generate_release_notes: true
             });
             return data.id;
 
