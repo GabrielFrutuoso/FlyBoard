@@ -13,6 +13,20 @@ import {
 
 const isLetter = (key: string) => /^[a-z]$/.test(key);
 
+const getKeyLabel = (
+  key: string,
+  shiftActive: boolean,
+  capsActive: boolean,
+) => {
+  if (!isCharKey(key)) return key;
+  if (isLetter(key))
+    return shiftActive !== capsActive ? key.toUpperCase() : key;
+  return shiftActive ? shifted(key) : key;
+};
+
+const resolveKey = (key: string, fnActive: boolean) =>
+  fnActive && FN_MAP[key] ? FN_MAP[key] : key;
+
 export function useKeyboard() {
   const [activeModifiers, setActiveModifiers] = useState<Modifier[]>([]);
   const [unusedModifiers, setUnusedModifiers] = useState<Modifier[]>([]);
@@ -64,17 +78,8 @@ export function useKeyboard() {
 
   const send = (key: string, modifiers: Modifier[]) =>
     invoke("send_key", { key: toKeyId(key), modifiers }).catch(console.error);
-
-  // Fn swaps the number row for the function row, like a laptop keyboard.
-  const resolve = (key: string) =>
-    fnActive && FN_MAP[key] ? FN_MAP[key] : key;
-
-  const getLabel = (key: string) => {
-    if (!isCharKey(key)) return key;
-    if (isLetter(key))
-      return shiftActive !== capsActive ? key.toUpperCase() : key;
-    return shiftActive ? shifted(key) : key;
-  };
+  const sendText = (text: string) =>
+    invoke("send_text", { text }).catch(console.error);
 
   const toggleModifier = (modifier: Modifier) => {
     if (activeModifiers.includes(modifier)) {
@@ -87,14 +92,6 @@ export function useKeyboard() {
       setUnusedModifiers((prev) => [...prev, modifier]);
     }
   };
-
-  const isLatched = (key: string) => {
-    if (key === "Caps") return capsActive;
-    if (key === "Fn") return fnActive;
-    return isModifier(key) && activeModifiers.includes(key);
-  };
-
-  const isPressed = (key: string) => pressedKeys.has(key);
 
   const handleKey = (key: string) => {
     if (key === "Caps") {
@@ -111,9 +108,24 @@ export function useKeyboard() {
       return;
     }
     // Character keys must use the active keyboard layout so dead keys can compose accents.
-    send(key, effectiveModifiers);
+    if (key === "/" && shiftActive) {
+      sendText("?");
+    } else {
+      send(key, effectiveModifiers);
+    }
     setUnusedModifiers([]);
   };
 
-  return { resolve, getLabel, isLatched, isPressed, handleKey };
+  return {
+    resolve: (key: string) => resolveKey(key, fnActive),
+    getLabel: (key: string) => getKeyLabel(key, shiftActive, capsActive),
+    isLatched: (key: string) =>
+      key === "Caps"
+        ? capsActive
+        : key === "Fn"
+          ? fnActive
+          : isModifier(key) && activeModifiers.includes(key),
+    isPressed: (key: string) => pressedKeys.has(key),
+    handleKey,
+  };
 }
