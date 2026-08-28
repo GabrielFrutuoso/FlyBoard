@@ -64,6 +64,8 @@ export const SHIFT_MAP: Record<string, string> = {
   "/": "?",
   "-": "_",
   "=": "+",
+  "´": "`",
+  "~": "^",
 };
 
 // Relative widths, chosen so every row adds up to the same total.

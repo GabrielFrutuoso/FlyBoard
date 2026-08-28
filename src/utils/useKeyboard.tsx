@@ -61,7 +61,6 @@ export function useKeyboard() {
   ];
 
   const shiftActive = effectiveModifiers.includes("Shift");
-  const hasNonShiftModifier = effectiveModifiers.some((m) => m !== "Shift");
 
   const send = (key: string, modifiers: Modifier[]) =>
     invoke("send_key", { key: toKeyId(key), modifiers }).catch(console.error);
@@ -111,14 +110,7 @@ export function useKeyboard() {
       toggleModifier(key);
       return;
     }
-    // Plain characters go in as text: the glyph may sit on a key that Shift alone
-    // can't reach (ABNT2 puts ? on its own key, not on Shift+/).
-    if (isCharKey(key) && !hasNonShiftModifier) {
-      invoke("send_text", { text: getLabel(key) }).catch(console.error);
-      setUnusedModifiers([]);
-      return;
-    }
-    // Named keys and shortcuts still need real virtual keys.
+    // Character keys must use the active keyboard layout so dead keys can compose accents.
     send(key, effectiveModifiers);
     setUnusedModifiers([]);
   };
