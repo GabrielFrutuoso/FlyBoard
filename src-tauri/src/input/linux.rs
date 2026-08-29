@@ -24,68 +24,19 @@ struct PhysicalKey {
     down: bool,
 }
 
-fn physical_key_id(key: KeyCode) -> Option<&'static str> {
-    Some(match key {
+fn physical_key_id(key: KeyCode) -> Option<String> {
+    let named = match key {
         KeyCode::KEY_ESC => "Esc",
-        KeyCode::KEY_1 => "1",
-        KeyCode::KEY_2 => "2",
-        KeyCode::KEY_3 => "3",
-        KeyCode::KEY_4 => "4",
-        KeyCode::KEY_5 => "5",
-        KeyCode::KEY_6 => "6",
-        KeyCode::KEY_7 => "7",
-        KeyCode::KEY_8 => "8",
-        KeyCode::KEY_9 => "9",
-        KeyCode::KEY_0 => "0",
-        KeyCode::KEY_MINUS => "-",
-        KeyCode::KEY_EQUAL => "=",
         KeyCode::KEY_BACKSPACE => "Backspace",
         KeyCode::KEY_TAB => "Tab",
-        KeyCode::KEY_Q => "q",
-        KeyCode::KEY_W => "w",
-        KeyCode::KEY_E => "e",
-        KeyCode::KEY_R => "r",
-        KeyCode::KEY_T => "t",
-        KeyCode::KEY_Y => "y",
-        KeyCode::KEY_U => "u",
-        KeyCode::KEY_I => "i",
-        KeyCode::KEY_O => "o",
-        KeyCode::KEY_P => "p",
-        KeyCode::KEY_LEFTBRACE => "´",
-        KeyCode::KEY_RIGHTBRACE => "[",
-        KeyCode::KEY_BACKSLASH => "]",
         KeyCode::KEY_ENTER => "Enter",
         KeyCode::KEY_LEFTCTRL | KeyCode::KEY_RIGHTCTRL => "Ctrl",
-        KeyCode::KEY_A => "a",
-        KeyCode::KEY_S => "s",
-        KeyCode::KEY_D => "d",
-        KeyCode::KEY_F => "f",
-        KeyCode::KEY_G => "g",
-        KeyCode::KEY_H => "h",
-        KeyCode::KEY_J => "j",
-        KeyCode::KEY_K => "k",
-        KeyCode::KEY_L => "l",
-        KeyCode::KEY_SEMICOLON => "ç",
-        KeyCode::KEY_APOSTROPHE => "~",
-        KeyCode::KEY_GRAVE => "'",
         KeyCode::KEY_CAPSLOCK => "Caps",
         KeyCode::KEY_LEFTSHIFT | KeyCode::KEY_RIGHTSHIFT => "Shift",
-        KeyCode::KEY_102ND => "\\",
-        KeyCode::KEY_Z => "z",
-        KeyCode::KEY_X => "x",
-        KeyCode::KEY_C => "c",
-        KeyCode::KEY_V => "v",
-        KeyCode::KEY_B => "b",
-        KeyCode::KEY_N => "n",
-        KeyCode::KEY_M => "m",
-        KeyCode::KEY_COMMA => ",",
-        KeyCode::KEY_DOT => ".",
-        KeyCode::KEY_SLASH => ";",
         KeyCode::KEY_LEFTALT => "Alt",
         KeyCode::KEY_SPACE => "Space",
         KeyCode::KEY_RIGHTALT => "AltGr",
         KeyCode::KEY_LEFTMETA | KeyCode::KEY_RIGHTMETA => "Win",
-        KeyCode::KEY_RO => "/",
         KeyCode::KEY_F1 => "F1",
         KeyCode::KEY_F2 => "F2",
         KeyCode::KEY_F3 => "F3",
@@ -102,8 +53,9 @@ fn physical_key_id(key: KeyCode) -> Option<&'static str> {
         KeyCode::KEY_DOWN => "Down",
         KeyCode::KEY_LEFT => "Left",
         KeyCode::KEY_RIGHT => "Right",
-        _ => return None,
-    })
+        _ => return Some(format!("physical:{}", key.code())),
+    };
+    Some(named.into())
 }
 
 fn listen_to_keyboard(mut device: Device, app: AppHandle) {
@@ -126,7 +78,7 @@ fn listen_to_keyboard(mut device: Device, app: AppHandle) {
                             _ => None,
                         } {
                             let _ = app.emit("physical-key", PhysicalKey {
-                                key: key.into(),
+                                key,
                                 down,
                             });
                         }
@@ -336,6 +288,56 @@ fn release(keyboard: &mut VirtualDevice, key: KeyCode) -> Result<(), String> {
         .map_err(|error| format!("Could not send key release event through virtual keyboard: {error}"))
 }
 
+fn unicode_digit_key(character: char) -> KeyCode {
+    match character {
+        '0' => KeyCode::KEY_0,
+        '1' => KeyCode::KEY_1,
+        '2' => KeyCode::KEY_2,
+        '3' => KeyCode::KEY_3,
+        '4' => KeyCode::KEY_4,
+        '5' => KeyCode::KEY_5,
+        '6' => KeyCode::KEY_6,
+        '7' => KeyCode::KEY_7,
+        '8' => KeyCode::KEY_8,
+        '9' => KeyCode::KEY_9,
+        'a' => KeyCode::KEY_A,
+        'b' => KeyCode::KEY_B,
+        'c' => KeyCode::KEY_C,
+        'd' => KeyCode::KEY_D,
+        'e' => KeyCode::KEY_E,
+        'f' => KeyCode::KEY_F,
+        _ => unreachable!("Unicode code points are hexadecimal"),
+    }
+}
+
+fn send_unicode_text(text: &str) -> Result<(), String> {
+    let mut keyboard = virtual_keyboard().and_then(|keyboard| {
+        keyboard
+            .lock()
+            .map_err(|_| "FlyBoard's virtual keyboard lock is unavailable.".into())
+    })?;
+
+    for character in text.chars() {
+        press(&mut keyboard, KeyCode::KEY_LEFTCTRL)?;
+        press(&mut keyboard, KeyCode::KEY_LEFTSHIFT)?;
+        press(&mut keyboard, KeyCode::KEY_U)?;
+        release(&mut keyboard, KeyCode::KEY_U)?;
+        release(&mut keyboard, KeyCode::KEY_LEFTSHIFT)?;
+        release(&mut keyboard, KeyCode::KEY_LEFTCTRL)?;
+
+        for digit in format!("{:x}", character as u32).chars() {
+            let key = unicode_digit_key(digit);
+            press(&mut keyboard, key)?;
+            release(&mut keyboard, key)?;
+        }
+
+        press(&mut keyboard, KeyCode::KEY_ENTER)?;
+        release(&mut keyboard, KeyCode::KEY_ENTER)?;
+    }
+
+    Ok(())
+}
+
 fn send_resolved(key: (KeyCode, bool), modifiers: &[Modifier]) -> Result<(), String> {
     let (target, needs_shift) = key;
     let mut active_modifiers = modifiers.to_vec();
@@ -372,10 +374,7 @@ fn send_resolved(key: (KeyCode, bool), modifiers: &[Modifier]) -> Result<(), Str
 }
 
 pub fn send_text(text: &str) -> Result<(), String> {
-    for character in text.chars() {
-        send_resolved(key_code(KeyId::Char(character))?, &[])?;
-    }
-    Ok(())
+    send_unicode_text(text)
 }
 
 pub fn send(key: KeyId, modifiers: &[Modifier]) -> Result<(), String> {
