@@ -50,6 +50,7 @@ fn modifier_key(modifier: Modifier) -> KeyCode {
 
 fn key_code(key: KeyId) -> Result<(KeyCode, bool), String> {
     let key = match key {
+        KeyId::Physical(code) => (KeyCode::new(code), false),
         KeyId::Char(character) => match character {
             'a' | 'A' => (KeyCode::KEY_A, character.is_ascii_uppercase()),
             'b' | 'B' => (KeyCode::KEY_B, character.is_ascii_uppercase()),
@@ -115,9 +116,10 @@ fn key_code(key: KeyId) -> Result<(KeyCode, bool), String> {
             NamedKey::Down => (KeyCode::KEY_DOWN, false),
             NamedKey::Left => (KeyCode::KEY_LEFT, false),
             NamedKey::Right => (KeyCode::KEY_RIGHT, false),
-            NamedKey::Function(number) => {
-                (KeyCode::new(KeyCode::KEY_F1.code() + u16::from(number) - 1), false)
-            }
+            NamedKey::Function(number) => (
+                KeyCode::new(KeyCode::KEY_F1.code() + u16::from(number) - 1),
+                false,
+            ),
         },
         KeyId::Modifier(modifier) => (modifier_key(modifier), false),
     };
@@ -204,4 +206,38 @@ pub fn send_text(text: &str) -> Result<(), String> {
 
 pub fn send(key: KeyId, modifiers: &[Modifier]) -> Result<(), String> {
     send_resolved(key_code(key)?, modifiers)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::key_code;
+    use crate::input::KeyId;
+
+    #[test]
+    fn resolves_accent_positions_without_colliding() {
+        assert_eq!(
+            key_code(KeyId::Physical(26)).unwrap().0,
+            evdev::KeyCode::KEY_LEFTBRACE
+        );
+        assert_eq!(
+            key_code(KeyId::Physical(40)).unwrap().0,
+            evdev::KeyCode::KEY_APOSTROPHE
+        );
+    }
+
+    #[test]
+    fn resolves_brazilian_slash_position() {
+        assert_eq!(
+            key_code(KeyId::Physical(89)).unwrap().0,
+            evdev::KeyCode::new(89)
+        );
+    }
+
+    #[test]
+    fn resolves_brazilian_backslash_position() {
+        assert_eq!(
+            key_code(KeyId::Physical(86)).unwrap().0,
+            evdev::KeyCode::KEY_102ND
+        );
+    }
 }
