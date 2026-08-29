@@ -3,11 +3,14 @@ import { listen } from "@tauri-apps/api/event";
 import { useEffect, useRef, useState } from "react";
 import {
   FN_MAP,
+  getPhysicalKeyLabel,
   isCharKey,
   isModifier,
+  LAYOUT_ROWS,
   MODIFIERS,
   shifted,
   toKeyId,
+  type Layout,
   type Modifier,
 } from "../keys";
 
@@ -17,15 +20,16 @@ const getKeyLabel = (
   key: string,
   shiftActive: boolean,
   capsActive: boolean,
+  layout: Layout,
 ) => {
   if (!isCharKey(key)) return key;
   if (isLetter(key))
     return shiftActive !== capsActive ? key.toUpperCase() : key;
-  return shiftActive ? shifted(key) : key;
+  return shiftActive ? shifted(key, layout) : key;
 };
 
-const resolveKey = (key: string, fnActive: boolean) =>
-  fnActive && FN_MAP[key] ? FN_MAP[key] : key;
+const resolveKey = (key: string, fnActive: boolean, layout: Layout) =>
+  fnActive && FN_MAP[layout]?.[key] ? FN_MAP[layout][key] : key;
 
 interface InputStatus {
   ready: boolean;
@@ -36,6 +40,23 @@ const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
 export function useKeyboard() {
+  const [layout, setLayout] = useState<Layout>(() => {
+    const saved = localStorage.getItem("flyboard_layout");
+    return saved === "en" || saved === "pt-br" ? saved : "pt-br";
+  });
+  const layoutRef = useRef<Layout>(layout);
+  useEffect(() => {
+    layoutRef.current = layout;
+  }, [layout]);
+
+  const toggleLayout = () => {
+    setLayout((prev) => {
+      const next = prev === "pt-br" ? "en" : "pt-br";
+      localStorage.setItem("flyboard_layout", next);
+      return next;
+    });
+  };
+
   const [activeModifiers, setActiveModifiers] = useState<Modifier[]>([]);
   const [unusedModifiers, setUnusedModifiers] = useState<Modifier[]>([]);
   const [capsActive, setCapsActive] = useState(false);
@@ -64,12 +85,13 @@ export function useKeyboard() {
 
     listen<{ key: string; down: boolean }>("physical-key", ({ payload }) => {
       const { key, down } = payload;
+      const mappedKey = getPhysicalKeyLabel(key, layoutRef.current);
 
-      if (down) pressedRef.current.add(key);
-      else pressedRef.current.delete(key);
+      if (down) pressedRef.current.add(mappedKey);
+      else pressedRef.current.delete(mappedKey);
 
       // Read on release: at hook time the lock hasn't flipped yet.
-      if (key === "Caps" && !down) syncCapsLock();
+      if (mappedKey === "Caps" && !down) syncCapsLock();
       setPressedKeys(new Set(pressedRef.current));
     }).then((unlisten) => {
       // StrictMode remounts before this resolves; without the guard a second listener survives.
@@ -93,7 +115,7 @@ export function useKeyboard() {
   const shiftActive = effectiveModifiers.includes("Shift");
 
   const send = (key: string, modifiers: Modifier[]) =>
-    invoke<void>("send_key", { key: toKeyId(key), modifiers })
+    invoke<void>("send_key", { key: toKeyId(key, layout), modifiers })
       .then(() => setInputError(null))
       .catch((error) => setInputError(errorMessage(error)));
 
@@ -128,8 +150,11 @@ export function useKeyboard() {
   };
 
   return {
-    resolve: (key: string) => resolveKey(key, fnActive),
-    getLabel: (key: string) => getKeyLabel(key, shiftActive, capsActive),
+    layout,
+    toggleLayout,
+    rows: LAYOUT_ROWS[layout],
+    resolve: (key: string) => resolveKey(key, fnActive, layout),
+    getLabel: (key: string) => getKeyLabel(key, shiftActive, capsActive, layout),
     isLatched: (key: string) =>
       key === "Caps"
         ? capsActive

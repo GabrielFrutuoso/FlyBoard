@@ -67,6 +67,7 @@ fn physical_key_id(key: KeyCode) -> Option<&'static str> {
         KeyCode::KEY_L => "l",
         KeyCode::KEY_SEMICOLON => "ç",
         KeyCode::KEY_APOSTROPHE => "~",
+        KeyCode::KEY_GRAVE => "'",
         KeyCode::KEY_CAPSLOCK => "Caps",
         KeyCode::KEY_LEFTSHIFT | KeyCode::KEY_RIGHTSHIFT => "Shift",
         KeyCode::KEY_102ND => "\\",
@@ -239,21 +240,24 @@ fn key_code(key: KeyId) -> Result<(KeyCode, bool), String> {
             '3' | '#' => (KeyCode::KEY_3, character == '#'),
             '4' | '$' => (KeyCode::KEY_4, character == '$'),
             '5' | '%' => (KeyCode::KEY_5, character == '%'),
-            '6' | '^' => (KeyCode::KEY_6, character == '^'),
+            '6' => (KeyCode::KEY_6, false),
             '7' | '&' => (KeyCode::KEY_7, character == '&'),
             '8' | '*' => (KeyCode::KEY_8, character == '*'),
             '9' | '(' => (KeyCode::KEY_9, character == '('),
             '0' | ')' => (KeyCode::KEY_0, character == ')'),
             '-' | '_' => (KeyCode::KEY_MINUS, character == '_'),
             '=' | '+' => (KeyCode::KEY_EQUAL, character == '+'),
+            '`' | '~' | '^' => (KeyCode::KEY_GRAVE, character != '`'),
             '[' | '{' => (KeyCode::KEY_LEFTBRACE, character == '{'),
             ']' | '}' => (KeyCode::KEY_RIGHTBRACE, character == '}'),
+            '\\' | '|' => (KeyCode::KEY_BACKSLASH, character == '|'),
             ';' | ':' => (KeyCode::KEY_SEMICOLON, character == ':'),
             '\'' | '"' => (KeyCode::KEY_APOSTROPHE, character == '"'),
             ',' | '<' => (KeyCode::KEY_COMMA, character == '<'),
             '.' | '>' => (KeyCode::KEY_DOT, character == '>'),
             '/' | '?' => (KeyCode::KEY_SLASH, character == '?'),
-            '`' | '~' | '´' => (KeyCode::KEY_GRAVE, character == '~'),
+            'ç' | 'Ç' => (KeyCode::KEY_SEMICOLON, character == 'Ç'),
+            '´' => (KeyCode::KEY_LEFTBRACE, false),
             ' ' => (KeyCode::KEY_SPACE, false),
             _ => {
                 return Err(format!(
@@ -272,10 +276,21 @@ fn key_code(key: KeyId) -> Result<(KeyCode, bool), String> {
             NamedKey::Down => (KeyCode::KEY_DOWN, false),
             NamedKey::Left => (KeyCode::KEY_LEFT, false),
             NamedKey::Right => (KeyCode::KEY_RIGHT, false),
-            NamedKey::Function(number) => (
-                KeyCode::new(KeyCode::KEY_F1.code() + u16::from(number) - 1),
-                false,
-            ),
+            NamedKey::Function(number) => match number {
+                1 => (KeyCode::KEY_F1, false),
+                2 => (KeyCode::KEY_F2, false),
+                3 => (KeyCode::KEY_F3, false),
+                4 => (KeyCode::KEY_F4, false),
+                5 => (KeyCode::KEY_F5, false),
+                6 => (KeyCode::KEY_F6, false),
+                7 => (KeyCode::KEY_F7, false),
+                8 => (KeyCode::KEY_F8, false),
+                9 => (KeyCode::KEY_F9, false),
+                10 => (KeyCode::KEY_F10, false),
+                11 => (KeyCode::KEY_F11, false),
+                12 => (KeyCode::KEY_F12, false),
+                _ => return Err(format!("Invalid function key F{number}")),
+            },
         },
         KeyId::Modifier(modifier) => (modifier_key(modifier), false),
     };
@@ -295,7 +310,7 @@ fn virtual_keyboard() -> Result<&'static Mutex<VirtualDevice>, String> {
     }
 
     let mut keys = AttributeSet::new();
-    for code in 1..=255 {
+    for code in 1..=511 {
         keys.insert(KeyCode::new(code));
     }
 
@@ -309,13 +324,16 @@ fn virtual_keyboard() -> Result<&'static Mutex<VirtualDevice>, String> {
     Ok(VIRTUAL_KEYBOARD.get_or_init(|| Mutex::new(keyboard)))
 }
 
-fn click(keyboard: &mut VirtualDevice, key: KeyCode) -> Result<(), String> {
+fn press(keyboard: &mut VirtualDevice, key: KeyCode) -> Result<(), String> {
     keyboard
-        .emit(&[
-            InputEvent::new(EventType::KEY.0, key.code(), 1),
-            InputEvent::new(EventType::KEY.0, key.code(), 0),
-        ])
-        .map_err(|error| format!("Could not send an event through the virtual keyboard: {error}"))
+        .emit(&[InputEvent::new(EventType::KEY.0, key.code(), 1)])
+        .map_err(|error| format!("Could not send key press event through virtual keyboard: {error}"))
+}
+
+fn release(keyboard: &mut VirtualDevice, key: KeyCode) -> Result<(), String> {
+    keyboard
+        .emit(&[InputEvent::new(EventType::KEY.0, key.code(), 0)])
+        .map_err(|error| format!("Could not send key release event through virtual keyboard: {error}"))
 }
 
 fn send_resolved(key: (KeyCode, bool), modifiers: &[Modifier]) -> Result<(), String> {
@@ -332,25 +350,25 @@ fn send_resolved(key: (KeyCode, bool), modifiers: &[Modifier]) -> Result<(), Str
     })?;
 
     for modifier in &active_modifiers {
-        keyboard
-            .emit(&[InputEvent::new(
-                EventType::KEY.0,
-                modifier_key(*modifier).code(),
-                1,
-            )])
-            .map_err(|error| format!("Could not press virtual modifier {modifier:?}: {error}"))?;
+        press(&mut keyboard, modifier_key(*modifier))?;
     }
-    let result = click(&mut keyboard, target);
+    if !active_modifiers.is_empty() {
+        thread::sleep(std::time::Duration::from_millis(5));
+    }
+
+    press(&mut keyboard, target)?;
+    thread::sleep(std::time::Duration::from_millis(12));
+    release(&mut keyboard, target)?;
+
+    if !active_modifiers.is_empty() {
+        thread::sleep(std::time::Duration::from_millis(5));
+    }
+
     for modifier in active_modifiers.iter().rev() {
-        keyboard
-            .emit(&[InputEvent::new(
-                EventType::KEY.0,
-                modifier_key(*modifier).code(),
-                0,
-            )])
-            .map_err(|error| format!("Could not release virtual modifier {modifier:?}: {error}"))?;
+        release(&mut keyboard, modifier_key(*modifier))?;
     }
-    result
+
+    Ok(())
 }
 
 pub fn send_text(text: &str) -> Result<(), String> {
@@ -366,8 +384,9 @@ pub fn send(key: KeyId, modifiers: &[Modifier]) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::key_code;
-    use crate::input::KeyId;
+    use super::{key_code, physical_key_id};
+    use crate::input::{KeyId, NamedKey};
+    use evdev::KeyCode;
 
     #[test]
     fn resolves_accent_positions_without_colliding() {
@@ -379,6 +398,45 @@ mod tests {
             key_code(KeyId::Physical(40)).unwrap().0,
             evdev::KeyCode::KEY_APOSTROPHE
         );
+        assert_eq!(
+            key_code(KeyId::Physical(41)).unwrap().0,
+            evdev::KeyCode::KEY_GRAVE
+        );
+    }
+
+    #[test]
+    fn resolves_character_mappings_matching_ui_layout() {
+        assert_eq!(key_code(KeyId::Char('\'')).unwrap().0, KeyCode::KEY_APOSTROPHE);
+        assert_eq!(key_code(KeyId::Char('`')).unwrap().0, KeyCode::KEY_GRAVE);
+        assert_eq!(key_code(KeyId::Char('[')).unwrap().0, KeyCode::KEY_LEFTBRACE);
+        assert_eq!(key_code(KeyId::Char(']')).unwrap().0, KeyCode::KEY_RIGHTBRACE);
+        assert_eq!(key_code(KeyId::Char('\\')).unwrap().0, KeyCode::KEY_BACKSLASH);
+        assert_eq!(key_code(KeyId::Char(';')).unwrap().0, KeyCode::KEY_SEMICOLON);
+        assert_eq!(key_code(KeyId::Char('/')).unwrap().0, KeyCode::KEY_SLASH);
+        assert_eq!(key_code(KeyId::Char('ç')).unwrap().0, KeyCode::KEY_SEMICOLON);
+    }
+
+    #[test]
+    fn resolves_function_keys_correctly() {
+        assert_eq!(key_code(KeyId::Named(NamedKey::Function(1))).unwrap().0, KeyCode::KEY_F1);
+        assert_eq!(key_code(KeyId::Named(NamedKey::Function(10))).unwrap().0, KeyCode::KEY_F10);
+        assert_eq!(key_code(KeyId::Named(NamedKey::Function(11))).unwrap().0, KeyCode::KEY_F11);
+        assert_eq!(key_code(KeyId::Named(NamedKey::Function(12))).unwrap().0, KeyCode::KEY_F12);
+    }
+
+    #[test]
+    fn physical_key_id_maps_grave_and_keys() {
+        assert_eq!(physical_key_id(KeyCode::KEY_GRAVE), Some("'"));
+        assert_eq!(physical_key_id(KeyCode::KEY_LEFTBRACE), Some("´"));
+        assert_eq!(physical_key_id(KeyCode::KEY_RIGHTBRACE), Some("["));
+        assert_eq!(physical_key_id(KeyCode::KEY_BACKSLASH), Some("]"));
+        assert_eq!(physical_key_id(KeyCode::KEY_SEMICOLON), Some("ç"));
+        assert_eq!(physical_key_id(KeyCode::KEY_APOSTROPHE), Some("~"));
+        assert_eq!(physical_key_id(KeyCode::KEY_102ND), Some("\\"));
+        assert_eq!(physical_key_id(KeyCode::KEY_SLASH), Some(";"));
+        assert_eq!(physical_key_id(KeyCode::KEY_RO), Some("/"));
+        assert_eq!(physical_key_id(KeyCode::KEY_F11), Some("F11"));
+        assert_eq!(physical_key_id(KeyCode::KEY_F12), Some("F12"));
     }
 
     #[test]
