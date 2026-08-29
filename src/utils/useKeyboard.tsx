@@ -31,6 +31,25 @@ const getKeyLabel = (
 const resolveKey = (key: string, fnActive: boolean, layout: Layout) =>
   fnActive && FN_MAP[layout]?.[key] ? FN_MAP[layout][key] : key;
 
+const deadKeyMark = (key: string, layout: Layout) => {
+  if (layout !== "pt-br") return undefined;
+  return (
+    {
+      "´": "\u0301",
+      "`": "\u0300",
+      "~": "\u0303",
+      "^": "\u0302",
+    }[key] ?? undefined
+  );
+};
+
+const composeDeadKey = (deadKey: string, mark: string, text: string) => {
+  if (text === " ") return deadKey;
+
+  const composed = `${text}${mark}`.normalize("NFC");
+  return composed === `${text}${mark}` ? `${deadKey}${text}` : composed;
+};
+
 interface InputStatus {
   ready: boolean;
   message: string | null;
@@ -61,6 +80,11 @@ export function useKeyboard() {
   const [unusedModifiers, setUnusedModifiers] = useState<Modifier[]>([]);
   const [capsActive, setCapsActive] = useState(false);
   const [fnActive, setFnActive] = useState(false);
+  const [pendingDeadKey, setPendingDeadKey] = useState<{
+    source: string;
+    key: string;
+    mark: string;
+  } | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
   const [pressedKeys, setPressedKeys] = useState<Set<string>>(new Set());
   const pressedRef = useRef<Set<string>>(new Set());
@@ -114,10 +138,23 @@ export function useKeyboard() {
 
   const shiftActive = effectiveModifiers.includes("Shift");
 
-  const send = (key: string, modifiers: Modifier[]) =>
-    invoke<void>("send_key", { key: toKeyId(key, layout), modifiers })
+  const send = (key: string, modifiers: Modifier[], text?: string) => {
+    const shortcutModifiers = modifiers.filter(
+      (modifier) => modifier !== "Shift",
+    );
+    const request =
+      isCharKey(key) && shortcutModifiers.length === 0
+        ? invoke<void>("send_text", {
+            text:
+              text ??
+              getKeyLabel(key, modifiers.includes("Shift"), capsActive, layout),
+          })
+        : invoke<void>("send_key", { key: toKeyId(key), modifiers });
+
+    return request
       .then(() => setInputError(null))
       .catch((error) => setInputError(errorMessage(error)));
+  };
 
   const toggleModifier = (modifier: Modifier) => {
     if (activeModifiers.includes(modifier)) {
@@ -145,7 +182,33 @@ export function useKeyboard() {
       toggleModifier(key);
       return;
     }
-    send(key, effectiveModifiers);
+    const text = getKeyLabel(key, shiftActive, capsActive, layout);
+    const shortcutModifiers = effectiveModifiers.filter(
+      (modifier) => modifier !== "Shift",
+    );
+    const mark =
+      isCharKey(key) && shortcutModifiers.length === 0
+        ? deadKeyMark(text, layout)
+        : undefined;
+
+    if (mark) {
+      if (pendingDeadKey?.mark === mark) {
+        setPendingDeadKey(null);
+        send(key, effectiveModifiers, pendingDeadKey.key);
+        setUnusedModifiers([]);
+        return;
+      }
+      if (pendingDeadKey) send(key, effectiveModifiers, pendingDeadKey.key);
+      setPendingDeadKey({ source: key, key: text, mark });
+      return;
+    }
+
+    const composedText =
+      pendingDeadKey && isCharKey(key) && shortcutModifiers.length === 0
+        ? composeDeadKey(pendingDeadKey.key, pendingDeadKey.mark, text)
+        : undefined;
+    setPendingDeadKey(null);
+    send(key, effectiveModifiers, composedText);
     setUnusedModifiers([]);
   };
 
@@ -154,13 +217,16 @@ export function useKeyboard() {
     toggleLayout,
     rows: LAYOUT_ROWS[layout],
     resolve: (key: string) => resolveKey(key, fnActive, layout),
-    getLabel: (key: string) => getKeyLabel(key, shiftActive, capsActive, layout),
+    getLabel: (key: string) =>
+      getKeyLabel(key, shiftActive, capsActive, layout),
     isLatched: (key: string) =>
       key === "Caps"
         ? capsActive
         : key === "Fn"
           ? fnActive
-          : isModifier(key) && activeModifiers.includes(key),
+          : pendingDeadKey?.source === key
+            ? true
+            : isModifier(key) && activeModifiers.includes(key),
     isPressed: (key: string) => pressedKeys.has(key),
     handleKey,
     inputError,

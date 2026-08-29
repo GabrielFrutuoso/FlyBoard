@@ -22,14 +22,61 @@ export const NAMED_KEYS: readonly string[] = [
 export const LAYOUT_ROWS: Record<Layout, readonly (readonly string[])[]> = {
   "pt-br": [
     ["'", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "="],
-    ["Tab", "q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "´", "[", "]", "Backspace"],
+    [
+      "Tab",
+      "q",
+      "w",
+      "e",
+      "r",
+      "t",
+      "y",
+      "u",
+      "i",
+      "o",
+      "p",
+      "´",
+      "[",
+      "]",
+      "Backspace",
+    ],
     ["Caps", "a", "s", "d", "f", "g", "h", "j", "k", "l", "ç", "~", "Enter"],
-    ["Shift", "\\", "z", "x", "c", "v", "b", "n", "m", ",", "Up", ".", ";", "/"],
+    [
+      "Shift",
+      "\\",
+      "z",
+      "x",
+      "c",
+      "v",
+      "b",
+      "n",
+      "m",
+      ",",
+      "Up",
+      ".",
+      ";",
+      "/",
+    ],
     ["Ctrl", "Fn", "Win", "Space", "AltGr", "Left", "Down", "Right", "Alt"],
   ],
   en: [
     ["`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "="],
-    ["Tab", "q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "[", "]", "\\", "Backspace"],
+    [
+      "Tab",
+      "q",
+      "w",
+      "e",
+      "r",
+      "t",
+      "y",
+      "u",
+      "i",
+      "o",
+      "p",
+      "[",
+      "]",
+      "\\",
+      "Backspace",
+    ],
     ["Caps", "a", "s", "d", "f", "g", "h", "j", "k", "l", ";", "'", "Enter"],
     ["Shift", "z", "x", "c", "v", "b", "n", "m", ",", "Up", ".", "/"],
     ["Ctrl", "Fn", "Win", "Space", "AltGr", "Left", "Down", "Right", "Alt"],
@@ -115,7 +162,7 @@ export const PHYSICAL_KEY_CODES: Record<Layout, Record<string, number>> = {
     j: 36,
     k: 37,
     l: 38,
-    "ç": 39,
+    ç: 39,
     "~": 40,
     z: 44,
     x: 45,
@@ -182,10 +229,7 @@ export const PHYSICAL_KEY_CODES: Record<Layout, Record<string, number>> = {
 };
 
 /** Canonical id understood by the Rust `send_key` command. */
-export const toKeyId = (key: string, layout: Layout = "pt-br") => {
-  const physicalCode = PHYSICAL_KEY_CODES[layout]?.[key];
-  return physicalCode ? `physical:${physicalCode}` : key;
-};
+export const toKeyId = (key: string) => (isCharKey(key) ? `char:${key}` : key);
 
 export const SHIFT_MAP: Record<Layout, Record<string, string>> = {
   "pt-br": {
@@ -255,33 +299,14 @@ export const KEY_UNITS: Record<string, number> = {
 export const shifted = (key: string, layout: Layout = "pt-br") =>
   SHIFT_MAP[layout]?.[key] ?? key.toUpperCase();
 
-export const getPhysicalKeyLabel = (rawKey: string, layout: Layout = "pt-br"): string => {
-  const ptBrToEn: Record<string, string> = {
-    "'": "`",
-    "´": "[",
-    "[": "]",
-    "]": "\\",
-    "ç": ";",
-    "~": "'",
-    "\\": "\\",
-    ";": "/",
-    "/": "/",
-  };
-  const enToPtBr: Record<string, string> = {
-    "`": "'",
-    "[": "´",
-    "]": "[",
-    "\\": "]",
-    ";": "ç",
-    "'": "~",
-    "/": ";",
-  };
+export const getPhysicalKeyLabel = (rawKey: string, layout: Layout): string => {
+  const match = /^physical:(\d+)$/.exec(rawKey);
+  if (!match) return rawKey;
 
-  if (layout === "en") {
-    return ptBrToEn[rawKey] ?? rawKey;
-  }
-  if (layout === "pt-br") {
-    return enToPtBr[rawKey] ?? rawKey;
-  }
-  return rawKey;
+  const code = Number(match[1]);
+  return (
+    Object.entries(PHYSICAL_KEY_CODES[layout]).find(
+      ([, physicalCode]) => physicalCode === code,
+    )?.[0] ?? rawKey
+  );
 };
