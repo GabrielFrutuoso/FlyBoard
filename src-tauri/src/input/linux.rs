@@ -1,15 +1,151 @@
 use super::{KeyId, Modifier, NamedKey};
 
-use evdev::{uinput::VirtualDevice, AttributeSet, EventType, InputEvent, KeyCode};
+use evdev::{uinput::VirtualDevice, AttributeSet, Device, EventSummary, EventType, InputEvent, KeyCode};
 use std::{
     fs::OpenOptions,
     io::ErrorKind,
     sync::{Mutex, OnceLock},
+    thread,
 };
 
 use super::InputStatus;
+use tauri::{AppHandle, Emitter};
 
 static VIRTUAL_KEYBOARD: OnceLock<Mutex<VirtualDevice>> = OnceLock::new();
+
+#[derive(Clone, serde::Serialize)]
+struct PhysicalKey {
+    key: String,
+    down: bool,
+}
+
+fn physical_key_id(key: KeyCode) -> Option<&'static str> {
+    Some(match key {
+        KeyCode::KEY_ESC => "Esc",
+        KeyCode::KEY_1 => "1",
+        KeyCode::KEY_2 => "2",
+        KeyCode::KEY_3 => "3",
+        KeyCode::KEY_4 => "4",
+        KeyCode::KEY_5 => "5",
+        KeyCode::KEY_6 => "6",
+        KeyCode::KEY_7 => "7",
+        KeyCode::KEY_8 => "8",
+        KeyCode::KEY_9 => "9",
+        KeyCode::KEY_0 => "0",
+        KeyCode::KEY_MINUS => "-",
+        KeyCode::KEY_EQUAL => "=",
+        KeyCode::KEY_BACKSPACE => "Backspace",
+        KeyCode::KEY_TAB => "Tab",
+        KeyCode::KEY_Q => "q",
+        KeyCode::KEY_W => "w",
+        KeyCode::KEY_E => "e",
+        KeyCode::KEY_R => "r",
+        KeyCode::KEY_T => "t",
+        KeyCode::KEY_Y => "y",
+        KeyCode::KEY_U => "u",
+        KeyCode::KEY_I => "i",
+        KeyCode::KEY_O => "o",
+        KeyCode::KEY_P => "p",
+        KeyCode::KEY_LEFTBRACE => "´",
+        KeyCode::KEY_RIGHTBRACE => "[",
+        KeyCode::KEY_BACKSLASH => "]",
+        KeyCode::KEY_ENTER => "Enter",
+        KeyCode::KEY_LEFTCTRL | KeyCode::KEY_RIGHTCTRL => "Ctrl",
+        KeyCode::KEY_A => "a",
+        KeyCode::KEY_S => "s",
+        KeyCode::KEY_D => "d",
+        KeyCode::KEY_F => "f",
+        KeyCode::KEY_G => "g",
+        KeyCode::KEY_H => "h",
+        KeyCode::KEY_J => "j",
+        KeyCode::KEY_K => "k",
+        KeyCode::KEY_L => "l",
+        KeyCode::KEY_SEMICOLON => "ç",
+        KeyCode::KEY_APOSTROPHE => "~",
+        KeyCode::KEY_CAPSLOCK => "Caps",
+        KeyCode::KEY_LEFTSHIFT | KeyCode::KEY_RIGHTSHIFT => "Shift",
+        KeyCode::KEY_102ND => "\\",
+        KeyCode::KEY_Z => "z",
+        KeyCode::KEY_X => "x",
+        KeyCode::KEY_C => "c",
+        KeyCode::KEY_V => "v",
+        KeyCode::KEY_B => "b",
+        KeyCode::KEY_N => "n",
+        KeyCode::KEY_M => "m",
+        KeyCode::KEY_COMMA => ",",
+        KeyCode::KEY_DOT => ".",
+        KeyCode::KEY_SLASH => ";",
+        KeyCode::KEY_LEFTALT => "Alt",
+        KeyCode::KEY_SPACE => "Space",
+        KeyCode::KEY_RIGHTALT => "AltGr",
+        KeyCode::KEY_LEFTMETA | KeyCode::KEY_RIGHTMETA => "Win",
+        KeyCode::KEY_RO => "/",
+        KeyCode::KEY_F1 => "F1",
+        KeyCode::KEY_F2 => "F2",
+        KeyCode::KEY_F3 => "F3",
+        KeyCode::KEY_F4 => "F4",
+        KeyCode::KEY_F5 => "F5",
+        KeyCode::KEY_F6 => "F6",
+        KeyCode::KEY_F7 => "F7",
+        KeyCode::KEY_F8 => "F8",
+        KeyCode::KEY_F9 => "F9",
+        KeyCode::KEY_F10 => "F10",
+        KeyCode::KEY_F11 => "F11",
+        KeyCode::KEY_F12 => "F12",
+        KeyCode::KEY_UP => "Up",
+        KeyCode::KEY_DOWN => "Down",
+        KeyCode::KEY_LEFT => "Left",
+        KeyCode::KEY_RIGHT => "Right",
+        _ => return None,
+    })
+}
+
+fn listen_to_keyboard(mut device: Device, app: AppHandle) {
+    loop {
+        let events = match device.fetch_events() {
+            Ok(events) => events,
+            Err(error) => {
+                eprintln!("physical key feedback stopped: {error}");
+                return;
+            }
+        };
+
+        for event in events {
+            if let EventSummary::Key(_, key, value) = event.destructure() {
+                if let Some(key) = physical_key_id(key) {
+                    if let Some(down) = match value {
+                        0 => Some(false),
+                        1 => Some(true),
+                        _ => None,
+                    } {
+                        let _ = app.emit("physical-key", PhysicalKey {
+                            key: key.into(),
+                            down,
+                        });
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Mirrors physical key presses in the UI without observing FlyBoard's own uinput device.
+pub fn install_hook(app: AppHandle) -> Result<(), String> {
+    let mut installed = 0;
+    for (_, device) in evdev::enumerate() {
+        if device.name() == Some("FlyBoard Virtual Keyboard") || device.supported_keys().is_none() {
+            continue;
+        }
+        let app = app.clone();
+        thread::spawn(move || listen_to_keyboard(device, app));
+        installed += 1;
+    }
+
+    if installed == 0 {
+        return Err("no readable physical keyboard devices found".into());
+    }
+    Ok(())
+}
 
 pub fn status() -> InputStatus {
     match OpenOptions::new().read(true).write(true).open("/dev/uinput") {

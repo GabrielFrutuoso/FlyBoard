@@ -63,6 +63,9 @@ pub fn run() {
                     let gtk_window = window.gtk_window();
                     gtk_window?.set_accept_focus(false);
                 }
+                if let Err(error) = input::linux::install_hook(app.handle().clone()) {
+                    eprintln!("physical key feedback disabled: {error}");
+                }
             }
             Ok(())
         })

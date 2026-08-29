@@ -7,7 +7,7 @@ use windows as platform;
 pub mod hook;
 
 #[cfg(target_os = "linux")]
-mod linux;
+pub(crate) mod linux;
 #[cfg(target_os = "linux")]
 use linux as platform;
 

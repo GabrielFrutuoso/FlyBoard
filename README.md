@@ -20,6 +20,11 @@ session access to `/dev/uinput`.
 FlyBoard does not add users to the `input` group. That group can read physical
 input devices and is broader than a virtual keyboard requires.
 
+Physical key highlighting follows the session's existing access to
+`/dev/input/event*` keyboard devices. Most graphical Linux sessions grant that
+access to their active user through `uaccess`; when they do not, key injection
+still works but physical key highlighting is unavailable.
+
 ## Development and AppImage setup
 
 Development runs and AppImages cannot install system udev rules themselves.
