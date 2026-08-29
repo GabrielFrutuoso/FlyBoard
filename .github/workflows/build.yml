@@ -2,14 +2,15 @@ name: Release
 
 on:
   push:
+    branches: ["main"]
     tags:
       - "v*"
       - "*.*.*"
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing tag to build and release (e.g. v0.1.4)"
-        required: true
+        description: "Existing tag to rebuild (leave empty to release the current version in tauri.conf.json)"
+        required: false
 
 permissions:
   contents: write
@@ -26,6 +27,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       release_id: ${{ steps.create-release.outputs.result }}
+      tag: ${{ steps.resolve.outputs.tag }}
+      should_release: ${{ steps.resolve.outputs.should_release }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -36,14 +39,53 @@ jobs:
         with:
           node-version: 20
 
-      - name: Create Release
-        id: create-release
-        uses: actions/github-script@v7
+      - name: Resolve release tag
+        id: resolve
+        shell: bash
         env:
           INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if [ -n "${INPUT_TAG:-}" ]; then
+            TAG="$INPUT_TAG"
+            EXISTING=true
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            EXISTING=true
+          else
+            # Auto-release on main: the tag is derived from the app version.
+            TAG="v$(node -p "require('./src-tauri/tauri.conf.json').version")"
+            EXISTING=false
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+          if [ "$EXISTING" = false ] && git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "Tag $TAG already exists; version not bumped, skipping release."
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+            echo "needs_tag=$([ "$EXISTING" = false ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create tag
+        if: ${{ steps.resolve.outputs.needs_tag == 'true' }}
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG"
+          git push origin "refs/tags/$TAG"
+
+      - name: Create Release
+        id: create-release
+        if: ${{ steps.resolve.outputs.should_release == 'true' }}
+        uses: actions/github-script@v7
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
         with:
           script: |
-            const tag = process.env.INPUT_TAG || context.ref.replace('refs/tags/', '');
+            const tag = process.env.TAG;
             const { data } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -58,6 +100,7 @@ jobs:
   build-release:
     name: Build (${{ matrix.platform }})
     needs: create-release
+    if: ${{ needs.create-release.outputs.should_release == 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -75,7 +118,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ needs.create-release.outputs.tag }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
@@ -265,6 +308,7 @@ jobs:
   publish-release:
     name: Publish Release
     needs: [create-release, build-release]
+    if: ${{ needs.create-release.outputs.should_release == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Publish release
@@ -283,6 +327,7 @@ jobs:
   notify-discord:
     name: Notify Discord
     needs: [create-release, publish-release]
+    if: ${{ needs.create-release.outputs.should_release == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Check Discord webhook
