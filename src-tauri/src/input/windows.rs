@@ -1,20 +1,20 @@
 use super::{push_unique, KeyId, Modifier, NamedKey};
 
-use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-    GetKeyState, GetKeyboardLayout, MapVirtualKeyExW, SendInput, VkKeyScanExW,
-    INPUT, INPUT_0, INPUT_KEYBOARD,
-    KEYBDINPUT, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE, VIRTUAL_KEY, VK_APPS,
-    VK_BACK, VK_CAPITAL, VK_DELETE, VK_DIVIDE, VK_DOWN, VK_END, VK_ESCAPE, VK_F1, VK_HOME,
-    VK_INSERT, VK_LCONTROL, VK_LEFT,
-    VK_LMENU, VK_LSHIFT, VK_LWIN, VK_NEXT, VK_NUMLOCK, VK_PRIOR, VK_RCONTROL, VK_RETURN, VK_RIGHT,
-    VK_RMENU, VK_RWIN, VK_SPACE, VK_TAB, VK_UP,
-};
 use windows_sys::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
+    GetKeyState, GetKeyboardLayout, MapVirtualKeyExW, SendInput, VkKeyScanExW, INPUT, INPUT_0,
+    INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE,
+    VIRTUAL_KEY, VK_APPS, VK_BACK, VK_CAPITAL, VK_DELETE, VK_DIVIDE, VK_DOWN, VK_END, VK_ESCAPE,
+    VK_F1, VK_HOME, VK_INSERT, VK_LCONTROL, VK_LEFT, VK_LMENU, VK_LSHIFT, VK_LWIN, VK_NEXT,
+    VK_NUMLOCK, VK_PRIOR, VK_RCONTROL, VK_RETURN, VK_RIGHT, VK_RMENU, VK_RWIN, VK_SPACE, VK_TAB,
+    VK_UP,
+};
 use windows_sys::Win32::UI::TextServices::HKL;
 use windows_sys::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
 
 /// Not exported by windows-sys 0.52.
 const MAPVK_VK_TO_VSC_EX: u32 = 4;
+const MAPVK_VSC_TO_VK_EX: u32 = 3;
 
 /// Stamped on every event we synthesize so the keyboard hook can tell them from real presses.
 pub(super) const INJECTED_TAG: usize = 0x464C_5942;
@@ -171,6 +171,10 @@ pub fn send(key: KeyId, modifiers: &[Modifier]) -> Result<(), String> {
             NamedKey::Function(n) => VK_F1 + u16::from(n) - 1,
         }),
         KeyId::Modifier(modifier) => Some(modifier_vk(modifier)),
+        KeyId::Physical(scan_code) => {
+            let vk = unsafe { MapVirtualKeyExW(u32::from(scan_code), MAPVK_VSC_TO_VK_EX, hkl) };
+            (vk != 0).then_some(vk as VIRTUAL_KEY)
+        }
         KeyId::Char(c) => resolve_char(c, hkl, &mut modifiers),
     };
 
