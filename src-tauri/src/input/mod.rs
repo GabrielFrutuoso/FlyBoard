@@ -7,9 +7,15 @@ use windows as platform;
 pub mod hook;
 
 #[cfg(target_os = "linux")]
-mod linux;
+pub(crate) mod linux;
 #[cfg(target_os = "linux")]
 use linux as platform;
+
+#[derive(serde::Serialize)]
+pub struct InputStatus {
+    pub ready: bool,
+    pub message: Option<String>,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Modifier {
@@ -52,12 +58,17 @@ pub enum NamedKey {
 #[derive(Debug, Clone, Copy)]
 pub enum KeyId {
     Char(char),
+    Physical(u16),
     Named(NamedKey),
     Modifier(Modifier),
 }
 
 impl KeyId {
     fn parse(id: &str) -> Option<Self> {
+        if let Some(rest) = id.strip_prefix("physical:") {
+            let code = rest.parse::<u16>().ok()?;
+            return (1..=255).contains(&code).then_some(Self::Physical(code));
+        }
         if let Some(rest) = id.strip_prefix("char:") {
             let mut chars = rest.chars();
             let c = chars.next()?;
@@ -88,7 +99,35 @@ impl KeyId {
     }
 }
 
-fn push_unique(modifiers: &mut Vec<Modifier>, modifier: Modifier) {    if !modifiers.contains(&modifier) {
+#[cfg(test)]
+mod tests {
+    use super::KeyId;
+
+    #[test]
+    fn parses_printable_physical_key_codes() {
+        assert!(matches!(
+            KeyId::parse("physical:26"),
+            Some(KeyId::Physical(26))
+        ));
+        assert!(matches!(
+            KeyId::parse("physical:40"),
+            Some(KeyId::Physical(40))
+        ));
+        assert!(matches!(
+            KeyId::parse("physical:89"),
+            Some(KeyId::Physical(89))
+        ));
+        assert!(matches!(
+            KeyId::parse("physical:86"),
+            Some(KeyId::Physical(86))
+        ));
+        assert!(KeyId::parse("physical:0").is_none());
+        assert!(KeyId::parse("physical:256").is_none());
+    }
+}
+
+fn push_unique(modifiers: &mut Vec<Modifier>, modifier: Modifier) {
+    if !modifiers.contains(&modifier) {
         modifiers.push(modifier);
     }
 }
@@ -105,13 +144,24 @@ pub fn send_text(text: &str) -> Result<(), String> {
 }
 
 pub fn caps_lock() -> bool {
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
     {
         platform::caps_lock_on()
     }
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
     {
         false
+    }
+}
+
+pub fn status() -> InputStatus {
+    #[cfg(target_os = "linux")]
+    return platform::status();
+
+    #[cfg(not(target_os = "linux"))]
+    InputStatus {
+        ready: true,
+        message: None,
     }
 }
 
@@ -120,8 +170,7 @@ pub fn send(key: &str, modifiers: &[String]) -> Result<(), String> {
 
     let mut resolved = Vec::new();
     for name in modifiers {
-        let modifier =
-            Modifier::parse(name).ok_or_else(|| format!("unknown modifier: {name}"))?;
+        let modifier = Modifier::parse(name).ok_or_else(|| format!("unknown modifier: {name}"))?;
         push_unique(&mut resolved, modifier);
     }
 

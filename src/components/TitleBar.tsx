@@ -1,17 +1,35 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Minus, X } from "lucide-react";
+import type { Layout } from "../keys";
 
 const appWindow = getCurrentWindow();
 
-const Header = () => {
+interface HeaderProps {
+  layout?: Layout;
+  onToggleLayout?: () => void;
+}
+
+const Header = ({ layout = "pt-br", onToggleLayout }: HeaderProps) => {
   return (
     <header
       data-tauri-drag-region
-      className="flex h-6 shrink-0 select-none items-start justify-between pl-2"
+      className="flex h-6 shrink-0 select-none items-center justify-between pl-2"
     >
-      <h1 data-tauri-drag-region className="text-xs text-zinc-300">
-        FlyBoard
-      </h1>
+      <div data-tauri-drag-region className="flex items-center gap-2">
+        <h1 data-tauri-drag-region className="text-xs font-semibold text-zinc-300">
+          FlyBoard
+        </h1>
+        {onToggleLayout && (
+          <button
+            onClick={onToggleLayout}
+            className="cursor-pointer rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] font-bold text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-white"
+            title="Switch Keyboard Layout (PT-BR / EN)"
+            aria-label="Toggle Keyboard Layout"
+          >
+            {layout === "pt-br" ? "PT-BR" : "EN"}
+          </button>
+        )}
+      </div>
 
       <div className="flex items-center gap-1">
         <button
