@@ -8,7 +8,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "tauri:linux": "env -u LD_LIBRARY_PATH -u GTK_PATH -u GTK_EXE_PREFIX -u GIO_MODULE_DIR -u GSETTINGS_SCHEMA_DIR -u LOCPATH -u GTK_IM_MODULE_FILE tauri"
+    "tauri:linux": "env -u LD_LIBRARY_PATH -u GTK_PATH -u GTK_EXE_PREFIX -u GIO_MODULE_DIR -u GSETTINGS_SCHEMA_DIR -u LOCPATH -u GTK_IM_MODULE_FILE tauri",
+    "tauri:linux:build": "bash scripts/tauri-linux-build.sh"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.18",
