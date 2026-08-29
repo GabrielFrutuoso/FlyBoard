@@ -1,8 +1,6 @@
 use super::{KeyId, Modifier, NamedKey};
 
-use evdev::{
-    uinput::VirtualDeviceBuilder, AttributeSet, EventType, InputEvent, KeyCode, VirtualDevice,
-};
+use evdev::{uinput::VirtualDevice, AttributeSet, EventType, InputEvent, KeyCode};
 use std::sync::{Mutex, OnceLock};
 
 static VIRTUAL_KEYBOARD: OnceLock<Mutex<VirtualDevice>> = OnceLock::new();
@@ -85,7 +83,7 @@ fn key_code(key: KeyId) -> Result<(KeyCode, bool), String> {
             NamedKey::Left => (KeyCode::KEY_LEFT, false),
             NamedKey::Right => (KeyCode::KEY_RIGHT, false),
             NamedKey::Function(number) => {
-                (KeyCode::new(KeyCode::KEY_F1.code() + number - 1), false)
+                (KeyCode::new(KeyCode::KEY_F1.code() + u16::from(number) - 1), false)
             }
         },
         KeyId::Modifier(modifier) => (modifier_key(modifier), false),
@@ -103,7 +101,7 @@ fn virtual_keyboard() -> Result<&'static Mutex<VirtualDevice>, String> {
         keys.insert(KeyCode::new(code));
     }
 
-    let keyboard = VirtualDeviceBuilder::new()
+    let keyboard = VirtualDevice::builder()
         .map_err(|error| format!("Cannot initialize FlyBoard's virtual keyboard: {error}"))?
         .name("FlyBoard Virtual Keyboard")
         .with_keys(&keys)
@@ -116,8 +114,8 @@ fn virtual_keyboard() -> Result<&'static Mutex<VirtualDevice>, String> {
 fn click(keyboard: &mut VirtualDevice, key: KeyCode) -> Result<(), String> {
     keyboard
         .emit(&[
-            InputEvent::new(EventType::KEY, key.code(), 1),
-            InputEvent::new(EventType::KEY, key.code(), 0),
+            InputEvent::new(EventType::KEY.0, key.code(), 1),
+            InputEvent::new(EventType::KEY.0, key.code(), 0),
         ])
         .map_err(|error| format!("Could not send an event through the virtual keyboard: {error}"))
 }
@@ -138,7 +136,7 @@ fn send_resolved(key: (KeyCode, bool), modifiers: &[Modifier]) -> Result<(), Str
     for modifier in &active_modifiers {
         keyboard
             .emit(&[InputEvent::new(
-                EventType::KEY,
+                EventType::KEY.0,
                 modifier_key(*modifier).code(),
                 1,
             )])
@@ -148,7 +146,7 @@ fn send_resolved(key: (KeyCode, bool), modifiers: &[Modifier]) -> Result<(), Str
     for modifier in active_modifiers.iter().rev() {
         keyboard
             .emit(&[InputEvent::new(
-                EventType::KEY,
+                EventType::KEY.0,
                 modifier_key(*modifier).code(),
                 0,
             )])
