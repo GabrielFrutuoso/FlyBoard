@@ -1,10 +1,13 @@
 use super::{KeyId, Modifier, NamedKey};
 
-use evdev::{uinput::VirtualDevice, AttributeSet, Device, EventSummary, EventType, InputEvent, KeyCode};
+use evdev::{uinput::VirtualDevice, AttributeSet, Device, EventSummary, EventType, InputEvent, KeyCode, LedCode};
 use std::{
     fs::OpenOptions,
     io::ErrorKind,
-    sync::{Mutex, OnceLock},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Mutex, OnceLock,
+    },
     thread,
 };
 
@@ -12,6 +15,8 @@ use super::InputStatus;
 use tauri::{AppHandle, Emitter};
 
 static VIRTUAL_KEYBOARD: OnceLock<Mutex<VirtualDevice>> = OnceLock::new();
+/// Mirrors the real caps lock LED, since evdev has no synchronous "query the lock" call.
+static CAPS_LOCK: AtomicBool = AtomicBool::new(false);
 
 #[derive(Clone, serde::Serialize)]
 struct PhysicalKey {
@@ -111,19 +116,25 @@ fn listen_to_keyboard(mut device: Device, app: AppHandle) {
         };
 
         for event in events {
-            if let EventSummary::Key(_, key, value) = event.destructure() {
-                if let Some(key) = physical_key_id(key) {
-                    if let Some(down) = match value {
-                        0 => Some(false),
-                        1 => Some(true),
-                        _ => None,
-                    } {
-                        let _ = app.emit("physical-key", PhysicalKey {
-                            key: key.into(),
-                            down,
-                        });
+            match event.destructure() {
+                EventSummary::Key(_, key, value) => {
+                    if let Some(key) = physical_key_id(key) {
+                        if let Some(down) = match value {
+                            0 => Some(false),
+                            1 => Some(true),
+                            _ => None,
+                        } {
+                            let _ = app.emit("physical-key", PhysicalKey {
+                                key: key.into(),
+                                down,
+                            });
+                        }
                     }
                 }
+                EventSummary::Led(_, LedCode::LED_CAPSL, value) => {
+                    CAPS_LOCK.store(value != 0, Ordering::Relaxed);
+                }
+                _ => {}
             }
         }
     }
@@ -136,6 +147,11 @@ pub fn install_hook(app: AppHandle) -> Result<(), String> {
         if device.name() == Some("FlyBoard Virtual Keyboard") || device.supported_keys().is_none() {
             continue;
         }
+        if let Ok(leds) = device.get_led_state() {
+            if leds.contains(LedCode::LED_CAPSL) {
+                CAPS_LOCK.store(true, Ordering::Relaxed);
+            }
+        }
         let app = app.clone();
         thread::spawn(move || listen_to_keyboard(device, app));
         installed += 1;
@@ -145,6 +161,10 @@ pub fn install_hook(app: AppHandle) -> Result<(), String> {
         return Err("no readable physical keyboard devices found".into());
     }
     Ok(())
+}
+
+pub fn caps_lock_on() -> bool {
+    CAPS_LOCK.load(Ordering::Relaxed)
 }
 
 pub fn status() -> InputStatus {

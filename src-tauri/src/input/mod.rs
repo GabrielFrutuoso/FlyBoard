@@ -144,11 +144,11 @@ pub fn send_text(text: &str) -> Result<(), String> {
 }
 
 pub fn caps_lock() -> bool {
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
     {
         platform::caps_lock_on()
     }
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
     {
         false
     }
