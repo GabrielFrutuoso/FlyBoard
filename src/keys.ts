@@ -41,8 +41,64 @@ export const isNamedKey = (key: string) => NAMED_KEYS.includes(key);
 
 export const isCharKey = (key: string) => !isModifier(key) && !isNamedKey(key);
 
+/** Linux evdev codes for the physical positions represented by printable keys. */
+export const PHYSICAL_KEY_CODES: Record<string, number> = {
+  "'": 41,
+  "1": 2,
+  "2": 3,
+  "3": 4,
+  "4": 5,
+  "5": 6,
+  "6": 7,
+  "7": 8,
+  "8": 9,
+  "9": 10,
+  "0": 11,
+  "-": 12,
+  "=": 13,
+  q: 16,
+  w: 17,
+  e: 18,
+  r: 19,
+  t: 20,
+  y: 21,
+  u: 22,
+  i: 23,
+  o: 24,
+  p: 25,
+  "´": 26,
+  "[": 27,
+  "]": 43,
+  a: 30,
+  s: 31,
+  d: 32,
+  f: 33,
+  g: 34,
+  h: 35,
+  j: 36,
+  k: 37,
+  l: 38,
+  "ç": 39,
+  "~": 40,
+  z: 44,
+  x: 45,
+  c: 46,
+  v: 47,
+  b: 48,
+  n: 49,
+  m: 50,
+  ",": 51,
+  ".": 52,
+  ";": 53,
+  "\\": 86,
+  "/": 89,
+};
+
 /** Canonical id understood by the Rust `send_key` command. */
-export const toKeyId = (key: string) => (isCharKey(key) ? `char:${key}` : key);
+export const toKeyId = (key: string) => {
+  const physicalCode = PHYSICAL_KEY_CODES[key];
+  return physicalCode ? `physical:${physicalCode}` : key;
+};
 
 export const SHIFT_MAP: Record<string, string> = {
   "1": "!",
@@ -58,14 +114,13 @@ export const SHIFT_MAP: Record<string, string> = {
   "'": "`",
   "[": "{",
   "]": "}",
+  "\\": "|",
   ";": ":",
   ",": "<",
   ".": ">",
   "/": "?",
   "-": "_",
   "=": "+",
-  "´": "`",
-  "~": "^",
 };
 
 // Relative widths, chosen so every row adds up to the same total.
