@@ -23,6 +23,11 @@ fn caps_lock() -> bool {
     input::caps_lock()
 }
 
+#[tauri::command]
+fn input_status() -> input::InputStatus {
+    input::status()
+}
+
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -45,6 +50,15 @@ pub fn run() {
             #[cfg(target_os = "linux")]
             {
                 use tauri::Manager;
+                let input_status = input::status();
+                if !input_status.ready {
+                    eprintln!(
+                        "FlyBoard virtual keyboard unavailable: {}",
+                        input_status
+                            .message
+                            .unwrap_or_else(|| "unknown setup error".into())
+                    );
+                }
                 if let Some(window) = app.get_webview_window("main") {
                     let gtk_window = window.gtk_window();
                     gtk_window?.set_accept_focus(false);
@@ -53,7 +67,7 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![send_key, send_text, caps_lock])
+        .invoke_handler(tauri::generate_handler![send_key, send_text, caps_lock, input_status])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

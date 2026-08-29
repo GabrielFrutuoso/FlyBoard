@@ -30,6 +30,13 @@
     "active": true,
     "targets": "all",
     "resources": ["resources/60-flyboard-uinput.rules"],
+    "linux": {
+      "deb": {
+        "files": {
+          "resources/60-flyboard-uinput.rules": "/usr/lib/udev/rules.d/60-flyboard-uinput.rules"
+        }
+      }
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

@@ -27,11 +27,20 @@ const getKeyLabel = (
 const resolveKey = (key: string, fnActive: boolean) =>
   fnActive && FN_MAP[key] ? FN_MAP[key] : key;
 
+interface InputStatus {
+  ready: boolean;
+  message: string | null;
+}
+
+const errorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : String(error);
+
 export function useKeyboard() {
   const [activeModifiers, setActiveModifiers] = useState<Modifier[]>([]);
   const [unusedModifiers, setUnusedModifiers] = useState<Modifier[]>([]);
   const [capsActive, setCapsActive] = useState(false);
   const [fnActive, setFnActive] = useState(false);
+  const [inputError, setInputError] = useState<string | null>(null);
   const [pressedKeys, setPressedKeys] = useState<Set<string>>(new Set());
   const pressedRef = useRef<Set<string>>(new Set());
 
@@ -40,11 +49,18 @@ export function useKeyboard() {
     invoke<boolean>("caps_lock").then(setCapsActive).catch(console.error);
   };
 
+  const syncInputStatus = () => {
+    invoke<InputStatus>("input_status")
+      .then((status) => setInputError(status.ready ? null : status.message))
+      .catch((error) => setInputError(errorMessage(error)));
+  };
+
   useEffect(() => {
     let stop: (() => void) | undefined;
     let cancelled = false;
 
     syncCapsLock();
+    syncInputStatus();
 
     listen<{ key: string; down: boolean }>("physical-key", ({ payload }) => {
       const { key, down } = payload;
@@ -77,9 +93,13 @@ export function useKeyboard() {
   const shiftActive = effectiveModifiers.includes("Shift");
 
   const send = (key: string, modifiers: Modifier[]) =>
-    invoke("send_key", { key: toKeyId(key), modifiers }).catch(console.error);
+    invoke<void>("send_key", { key: toKeyId(key), modifiers })
+      .then(() => setInputError(null))
+      .catch((error) => setInputError(errorMessage(error)));
   const sendText = (text: string) =>
-    invoke("send_text", { text }).catch(console.error);
+    invoke<void>("send_text", { text })
+      .then(() => setInputError(null))
+      .catch((error) => setInputError(errorMessage(error)));
 
   const toggleModifier = (modifier: Modifier) => {
     if (activeModifiers.includes(modifier)) {
@@ -127,5 +147,6 @@ export function useKeyboard() {
           : isModifier(key) && activeModifiers.includes(key),
     isPressed: (key: string) => pressedKeys.has(key),
     handleKey,
+    inputError,
   };
 }

@@ -11,6 +11,12 @@ mod linux;
 #[cfg(target_os = "linux")]
 use linux as platform;
 
+#[derive(serde::Serialize)]
+pub struct InputStatus {
+    pub ready: bool,
+    pub message: Option<String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Modifier {
     Shift,
@@ -112,6 +118,17 @@ pub fn caps_lock() -> bool {
     #[cfg(not(target_os = "windows"))]
     {
         false
+    }
+}
+
+pub fn status() -> InputStatus {
+    #[cfg(target_os = "linux")]
+    return platform::status();
+
+    #[cfg(not(target_os = "linux"))]
+    InputStatus {
+        ready: true,
+        message: None,
     }
 }
 

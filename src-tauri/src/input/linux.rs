@@ -1,9 +1,42 @@
 use super::{KeyId, Modifier, NamedKey};
 
 use evdev::{uinput::VirtualDevice, AttributeSet, EventType, InputEvent, KeyCode};
-use std::sync::{Mutex, OnceLock};
+use std::{
+    fs::OpenOptions,
+    io::ErrorKind,
+    sync::{Mutex, OnceLock},
+};
+
+use super::InputStatus;
 
 static VIRTUAL_KEYBOARD: OnceLock<Mutex<VirtualDevice>> = OnceLock::new();
+
+pub fn status() -> InputStatus {
+    match OpenOptions::new().read(true).write(true).open("/dev/uinput") {
+        Ok(_) => InputStatus {
+            ready: true,
+            message: None,
+        },
+        Err(error) if error.kind() == ErrorKind::NotFound => InputStatus {
+            ready: false,
+            message: Some(
+                "FlyBoard cannot find /dev/uinput. Load the uinput kernel module, then restart FlyBoard."
+                    .into(),
+            ),
+        },
+        Err(error) if error.kind() == ErrorKind::PermissionDenied => InputStatus {
+            ready: false,
+            message: Some(
+                "FlyBoard cannot access /dev/uinput. Install the FlyBoard .deb or configure its udev rule, then sign out and back in."
+                    .into(),
+            ),
+        },
+        Err(error) => InputStatus {
+            ready: false,
+            message: Some(format!("FlyBoard cannot access /dev/uinput: {error}")),
+        },
+    }
+}
 
 fn modifier_key(modifier: Modifier) -> KeyCode {
     match modifier {
@@ -94,6 +127,13 @@ fn key_code(key: KeyId) -> Result<(KeyCode, bool), String> {
 fn virtual_keyboard() -> Result<&'static Mutex<VirtualDevice>, String> {
     if let Some(keyboard) = VIRTUAL_KEYBOARD.get() {
         return Ok(keyboard);
+    }
+
+    let input_status = status();
+    if !input_status.ready {
+        return Err(input_status
+            .message
+            .unwrap_or_else(|| "FlyBoard's virtual keyboard is unavailable.".into()));
     }
 
     let mut keys = AttributeSet::new();
