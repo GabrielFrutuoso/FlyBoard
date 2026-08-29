@@ -96,10 +96,6 @@ export function useKeyboard() {
     invoke<void>("send_key", { key: toKeyId(key), modifiers })
       .then(() => setInputError(null))
       .catch((error) => setInputError(errorMessage(error)));
-  const sendText = (text: string) =>
-    invoke<void>("send_text", { text })
-      .then(() => setInputError(null))
-      .catch((error) => setInputError(errorMessage(error)));
 
   const toggleModifier = (modifier: Modifier) => {
     if (activeModifiers.includes(modifier)) {
@@ -127,12 +123,7 @@ export function useKeyboard() {
       toggleModifier(key);
       return;
     }
-    // Character keys must use the active keyboard layout so dead keys can compose accents.
-    if (key === "/" && shiftActive) {
-      sendText("?");
-    } else {
-      send(key, effectiveModifiers);
-    }
+    send(key, effectiveModifiers);
     setUnusedModifiers([]);
   };
 
