@@ -56,5 +56,24 @@ start FlyBoard again.
 ```bash
 pnpm install
 pnpm tauri:linux dev
-pnpm build
+pnpm tauri:linux:build
 ```
+
+Close FlyBoard before rebuilding an AppImage. Linux cannot replace an
+executable while it is running, which causes `Text file busy (os error 26)`.
+To identify a process holding a generated artifact, run:
+
+```bash
+fuser -v src-tauri/target/release/bundle/appimage/*.AppImage
+```
+
+## Window behavior on Linux
+
+GNOME Wayland does not provide ordinary desktop applications with a guaranteed
+always-on-top layer. When FlyBoard starts in a Wayland session and XWayland is
+available, it automatically uses XWayland so it can stay above normal
+application windows without taking focus from the active input target.
+
+To force native Wayland, launch FlyBoard with `GDK_BACKEND=wayland`. The
+virtual keyboard remains functional, but the compositor can reject its
+always-on-top request.

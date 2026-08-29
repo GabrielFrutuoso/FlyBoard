@@ -8,6 +8,13 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 #[cfg(target_os = "linux")]
 use gtk::prelude::*;
 
+#[cfg(target_os = "linux")]
+fn configure_linux_window(window: &gtk::ApplicationWindow) {
+    window.set_keep_above(true);
+    window.set_focus_on_map(false);
+    window.set_accept_focus(false);
+}
+
 #[tauri::command]
 fn send_key(key: String, modifiers: Vec<String>) -> Result<(), String> {
     input::send(&key, &modifiers)
@@ -60,8 +67,16 @@ pub fn run() {
                     );
                 }
                 if let Some(window) = app.get_webview_window("main") {
-                    let gtk_window = window.gtk_window();
-                    gtk_window?.set_accept_focus(false);
+                    let gtk_window = window.gtk_window()?;
+                    configure_linux_window(&gtk_window);
+                    gtk_window.connect_map_event(|gtk_window, _| {
+                        configure_linux_window(gtk_window);
+                        false.into()
+                    });
+                    gtk_window.connect_window_state_event(|gtk_window, _| {
+                        configure_linux_window(gtk_window);
+                        false.into()
+                    });
                 }
                 if let Err(error) = input::linux::install_hook(app.handle().clone()) {
                     eprintln!("physical key feedback disabled: {error}");
