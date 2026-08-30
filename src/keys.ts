@@ -231,6 +231,12 @@ export const PHYSICAL_KEY_CODES: Record<Layout, Record<string, number>> = {
 /** Canonical id understood by the Rust `send_key` command. */
 export const toKeyId = (key: string) => (isCharKey(key) ? `char:${key}` : key);
 
+/** Canonical id for a printable key's physical position in the selected layout. */
+export const toPhysicalKeyId = (key: string, layout: Layout) => {
+  const code = PHYSICAL_KEY_CODES[layout]?.[key];
+  return code === undefined ? toKeyId(key) : `physical:${code}`;
+};
+
 export const SHIFT_MAP: Record<Layout, Record<string, string>> = {
   "pt-br": {
     "1": "!",

@@ -9,7 +9,7 @@ import {
   LAYOUT_ROWS,
   MODIFIERS,
   shifted,
-  toKeyId,
+  toPhysicalKeyId,
   type Layout,
   type Modifier,
 } from "../keys";
@@ -87,7 +87,7 @@ export function useKeyboard() {
   } | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
   const [pressedKeys, setPressedKeys] = useState<Set<string>>(new Set());
-  const pressedRef = useRef<Set<string>>(new Set());
+  const pressedRef = useRef<Map<string, string>>(new Map());
 
   // The OS lock is the source of truth; tracking it locally would drift out of sync.
   const syncCapsLock = () => {
@@ -107,16 +107,16 @@ export function useKeyboard() {
     syncCapsLock();
     syncInputStatus();
 
-    listen<{ key: string; down: boolean }>("physical-key", ({ payload }) => {
-      const { key, down } = payload;
+    listen<{ key: string; source?: string; down: boolean }>("physical-key", ({ payload }) => {
+      const { key, down, source = key } = payload;
       const mappedKey = getPhysicalKeyLabel(key, layoutRef.current);
 
-      if (down) pressedRef.current.add(mappedKey);
-      else pressedRef.current.delete(mappedKey);
+      if (down) pressedRef.current.set(source, mappedKey);
+      else pressedRef.current.delete(source);
 
       // Read on release: at hook time the lock hasn't flipped yet.
       if (mappedKey === "Caps" && !down) syncCapsLock();
-      setPressedKeys(new Set(pressedRef.current));
+      setPressedKeys(new Set(pressedRef.current.values()));
     }).then((unlisten) => {
       // StrictMode remounts before this resolves; without the guard a second listener survives.
       if (cancelled) unlisten();
@@ -138,18 +138,26 @@ export function useKeyboard() {
 
   const shiftActive = effectiveModifiers.includes("Shift");
 
-  const send = (key: string, modifiers: Modifier[], text?: string) => {
-    const shortcutModifiers = modifiers.filter(
+  const send = (
+    key: string,
+    modifiers: Modifier[],
+    text?: string,
+    physicalModifierHeld = false,
+  ) => {
+    const hasShortcutModifier = modifiers.some(
       (modifier) => modifier !== "Shift",
     );
     const request =
-      isCharKey(key) && shortcutModifiers.length === 0
+      isCharKey(key) && !hasShortcutModifier && !physicalModifierHeld
         ? invoke<void>("send_text", {
             text:
               text ??
               getKeyLabel(key, modifiers.includes("Shift"), capsActive, layout),
           })
-        : invoke<void>("send_key", { key: toKeyId(key), modifiers });
+        : invoke<void>("send_key", {
+            key: toPhysicalKeyId(key, layout),
+            modifiers,
+          });
 
     return request
       .then(() => setInputError(null))
@@ -183,6 +191,7 @@ export function useKeyboard() {
       return;
     }
     const text = getKeyLabel(key, shiftActive, capsActive, layout);
+    const physicalModifierHeld = physicalModifiers.length > 0;
     const shortcutModifiers = effectiveModifiers.filter(
       (modifier) => modifier !== "Shift",
     );
@@ -194,11 +203,12 @@ export function useKeyboard() {
     if (mark) {
       if (pendingDeadKey?.mark === mark) {
         setPendingDeadKey(null);
-        send(key, effectiveModifiers, pendingDeadKey.key);
+        send(key, effectiveModifiers, pendingDeadKey.key, physicalModifierHeld);
         setUnusedModifiers([]);
         return;
       }
-      if (pendingDeadKey) send(key, effectiveModifiers, pendingDeadKey.key);
+      if (pendingDeadKey)
+        send(key, effectiveModifiers, pendingDeadKey.key, physicalModifierHeld);
       setPendingDeadKey({ source: key, key: text, mark });
       return;
     }
@@ -208,7 +218,7 @@ export function useKeyboard() {
         ? composeDeadKey(pendingDeadKey.key, pendingDeadKey.mark, text)
         : undefined;
     setPendingDeadKey(null);
-    send(key, effectiveModifiers, composedText);
+    send(key, effectiveModifiers, composedText, physicalModifierHeld);
     setUnusedModifiers([]);
   };
 
