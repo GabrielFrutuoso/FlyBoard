@@ -15,6 +15,16 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 
 use super::windows::INJECTED_TAG;
 
+/// Inverse of the injection-side translation: real presses arrive as Windows scan codes,
+/// but the frontend matches physical keys against Linux evdev codes.
+fn scan_code_to_evdev(scan_code: u32) -> u32 {
+    match scan_code {
+        // Windows scan 0x73 is the ABNT2 "?/" key, evdev KEY_RO = 89.
+        0x73 => 89,
+        _ => scan_code,
+    }
+}
+
 static APP: OnceLock<AppHandle> = OnceLock::new();
 
 #[derive(Clone, Serialize)]
@@ -45,7 +55,7 @@ fn key_id(vk: VIRTUAL_KEY, scan_code: u32) -> Option<String> {
             if (VK_F1..=VK_F12).contains(&vk) {
                 return Some(format!("F{}", vk - VK_F1 + 1));
             }
-            return (scan_code != 0).then(|| format!("physical:{scan_code}"));
+            return (scan_code != 0).then(|| format!("physical:{}", scan_code_to_evdev(scan_code)));
         }
     };
     Some(named.to_string())
