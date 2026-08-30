@@ -21,6 +21,7 @@ static CAPS_LOCK: AtomicBool = AtomicBool::new(false);
 #[derive(Clone, serde::Serialize)]
 struct PhysicalKey {
     key: String,
+    source: String,
     down: bool,
 }
 
@@ -58,7 +59,11 @@ fn physical_key_id(key: KeyCode) -> Option<String> {
     Some(named.into())
 }
 
-fn listen_to_keyboard(mut device: Device, app: AppHandle) {
+fn physical_key_source(device_path: &str, key: KeyCode) -> String {
+    format!("{device_path}:physical:{}", key.code())
+}
+
+fn listen_to_keyboard(mut device: Device, app: AppHandle, device_path: String) {
     loop {
         let events = match device.fetch_events() {
             Ok(events) => events,
@@ -71,6 +76,7 @@ fn listen_to_keyboard(mut device: Device, app: AppHandle) {
         for event in events {
             match event.destructure() {
                 EventSummary::Key(_, key, value) => {
+                    let source = physical_key_source(&device_path, key);
                     if let Some(key) = physical_key_id(key) {
                         if let Some(down) = match value {
                             0 => Some(false),
@@ -79,6 +85,7 @@ fn listen_to_keyboard(mut device: Device, app: AppHandle) {
                         } {
                             let _ = app.emit("physical-key", PhysicalKey {
                                 key,
+                                source,
                                 down,
                             });
                         }
@@ -96,7 +103,7 @@ fn listen_to_keyboard(mut device: Device, app: AppHandle) {
 /// Mirrors physical key presses in the UI without observing FlyBoard's own uinput device.
 pub fn install_hook(app: AppHandle) -> Result<(), String> {
     let mut installed = 0;
-    for (_, device) in evdev::enumerate() {
+    for (device_path, device) in evdev::enumerate() {
         if device.name() == Some("FlyBoard Virtual Keyboard") || device.supported_keys().is_none() {
             continue;
         }
@@ -106,7 +113,8 @@ pub fn install_hook(app: AppHandle) -> Result<(), String> {
             }
         }
         let app = app.clone();
-        thread::spawn(move || listen_to_keyboard(device, app));
+        let device_path = device_path.display().to_string();
+        thread::spawn(move || listen_to_keyboard(device, app, device_path));
         installed += 1;
     }
 
@@ -383,7 +391,7 @@ pub fn send(key: KeyId, modifiers: &[Modifier]) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{key_code, physical_key_id};
+    use super::{key_code, physical_key_id, physical_key_source};
     use crate::input::{KeyId, NamedKey};
     use evdev::KeyCode;
 
@@ -424,18 +432,33 @@ mod tests {
     }
 
     #[test]
-    fn physical_key_id_maps_grave_and_keys() {
-        assert_eq!(physical_key_id(KeyCode::KEY_GRAVE), Some("'"));
-        assert_eq!(physical_key_id(KeyCode::KEY_LEFTBRACE), Some("´"));
-        assert_eq!(physical_key_id(KeyCode::KEY_RIGHTBRACE), Some("["));
-        assert_eq!(physical_key_id(KeyCode::KEY_BACKSLASH), Some("]"));
-        assert_eq!(physical_key_id(KeyCode::KEY_SEMICOLON), Some("ç"));
-        assert_eq!(physical_key_id(KeyCode::KEY_APOSTROPHE), Some("~"));
-        assert_eq!(physical_key_id(KeyCode::KEY_102ND), Some("\\"));
-        assert_eq!(physical_key_id(KeyCode::KEY_SLASH), Some(";"));
-        assert_eq!(physical_key_id(KeyCode::KEY_RO), Some("/"));
-        assert_eq!(physical_key_id(KeyCode::KEY_F11), Some("F11"));
-        assert_eq!(physical_key_id(KeyCode::KEY_F12), Some("F12"));
+    fn physical_key_id_preserves_printable_key_positions() {
+        assert_eq!(physical_key_id(KeyCode::KEY_GRAVE), Some("physical:41".into()));
+        assert_eq!(physical_key_id(KeyCode::KEY_LEFTBRACE), Some("physical:26".into()));
+        assert_eq!(physical_key_id(KeyCode::KEY_RIGHTBRACE), Some("physical:27".into()));
+        assert_eq!(physical_key_id(KeyCode::KEY_BACKSLASH), Some("physical:43".into()));
+        assert_eq!(physical_key_id(KeyCode::KEY_SEMICOLON), Some("physical:39".into()));
+        assert_eq!(physical_key_id(KeyCode::KEY_APOSTROPHE), Some("physical:40".into()));
+        assert_eq!(physical_key_id(KeyCode::KEY_102ND), Some("physical:86".into()));
+        assert_eq!(physical_key_id(KeyCode::KEY_SLASH), Some("physical:53".into()));
+        assert_eq!(physical_key_id(KeyCode::KEY_RO), Some("physical:89".into()));
+        assert_eq!(physical_key_id(KeyCode::KEY_F11), Some("F11".into()));
+        assert_eq!(physical_key_id(KeyCode::KEY_F12), Some("F12".into()));
+    }
+
+    #[test]
+    fn left_and_right_modifiers_have_distinct_physical_sources() {
+        assert_ne!(KeyCode::KEY_LEFTSHIFT.code(), KeyCode::KEY_RIGHTSHIFT.code());
+        assert_ne!(KeyCode::KEY_LEFTCTRL.code(), KeyCode::KEY_RIGHTCTRL.code());
+        assert_ne!(KeyCode::KEY_LEFTALT.code(), KeyCode::KEY_RIGHTALT.code());
+    }
+
+    #[test]
+    fn same_modifier_on_different_keyboards_has_distinct_source() {
+        assert_ne!(
+            physical_key_source("/dev/input/event3", KeyCode::KEY_LEFTSHIFT),
+            physical_key_source("/dev/input/event7", KeyCode::KEY_LEFTSHIFT)
+        );
     }
 
     #[test]
