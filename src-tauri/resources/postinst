@@ -1,0 +1,11 @@
+#!/bin/sh
+# Post-installation script for FlyBoard .deb package
+# Reload udev rules to grant immediate access to /dev/uinput
+
+set -e
+
+# Reload udev rules without requiring a system reboot
+udevadm control --reload-rules 2>/dev/null || true
+udevadm trigger --action=change --subsystem-match=misc --sysname-match=uinput 2>/dev/null || true
+
+exit 0

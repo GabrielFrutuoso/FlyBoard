@@ -34,7 +34,8 @@
       "deb": {
         "files": {
           "/usr/lib/udev/rules.d/60-flyboard-uinput.rules": "resources/60-flyboard-uinput.rules"
-        }
+        },
+        "postInstallScript": "resources/postinst"
       }
     },
     "icon": [

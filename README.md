@@ -6,29 +6,62 @@ keyboard events.
 
 ## Ubuntu installation
 
-Install the Debian package:
+> **📦 Important**: Use the `.deb` package (not `.AppImage`) for seamless Linux installation.
+> The `.deb` automatically installs FlyBoard's udev rule and reloads it, allowing immediate access to `/dev/uinput`.
+
+### Steps
+
+1. **Download** the `.deb` package from [GitHub Releases](https://github.com/your-org/FlyBoard/releases)
+
+2. **Install** the package:
 
 ```bash
 sudo apt install ./flyboard_*.deb
 ```
 
-The package installs FlyBoard's udev rule at
-`/usr/lib/udev/rules.d/60-flyboard-uinput.rules`. Restart the graphical session
-or reboot after the first installation so logind can grant the active desktop
-session access to `/dev/uinput`.
+3. **Restart your graphical session** (recommended):
 
-FlyBoard does not add users to the `input` group. That group can read physical
-input devices and is broader than a virtual keyboard requires.
+> ℹ️ The package automatically reloads udev rules after installation. However, your session may need to restart 
+> to apply permission changes. If FlyBoard reports "Permission Denied" on first run, log out and back in.
 
-Physical key highlighting follows the session's existing access to
-`/dev/input/event*` keyboard devices. Most graphical Linux sessions grant that
-access to their active user through `uaccess`; when they do not, key injection
-still works but physical key highlighting is unavailable.
+4. **Verify setup** (optional, but helpful for troubleshooting):
 
-## Development and AppImage setup
+```bash
+ls -l /dev/uinput
+getfacl /dev/uinput
+```
 
-Development runs and AppImages cannot install system udev rules themselves.
-Install and activate the included rule once:
+You should see that your user has read and write access (`rw-`).
+
+### Technical details
+
+- The `.deb` package installs FlyBoard's udev rule at `/usr/lib/udev/rules.d/60-flyboard-uinput.rules`
+- A post-installation script automatically reloads udev rules (no manual `udevadm` commands needed)
+- FlyBoard does not add users to the `input` group (which can read physical input devices; a virtual keyboard requires less access)
+- Physical key highlighting follows your session's existing access to `/dev/input/event*` keyboard devices
+
+## Troubleshooting
+
+### "Permission Denied" error when starting FlyBoard
+
+**Cause**: You haven't restarted your session after installing the `.deb`.
+
+**Fix**: 
+1. Log out and back in (or reboot your system)
+2. Try FlyBoard again
+
+### "Cannot find /dev/uinput"
+
+**Cause**: The Linux kernel module isn't loaded.
+
+**Fix**:
+```bash
+sudo modprobe uinput
+```
+
+### Using AppImage or developing FlyBoard
+
+If you downloaded the `.AppImage` or are developing FlyBoard, you need to manually install the udev rule:
 
 ```bash
 sudo install -Dm644 src-tauri/resources/60-flyboard-uinput.rules /usr/lib/udev/rules.d/60-flyboard-uinput.rules
@@ -36,32 +69,32 @@ sudo udevadm control --reload-rules
 sudo udevadm trigger --action=change --subsystem-match=misc --sysname-match=uinput
 ```
 
-Restart the graphical session if FlyBoard still reports that `/dev/uinput` is
-unavailable. The app displays the same diagnosis in its window rather than
-silently dropping key presses.
+Then restart your graphical session. The app displays diagnostics in its window if `/dev/uinput` is unavailable.
 
-## Verify setup
+## Development: Build and run from source
+
+### Prerequisites
+
+If building from source, you need to install the udev rule first:
 
 ```bash
-ls -l /dev/uinput
-getfacl /dev/uinput
+sudo install -Dm644 src-tauri/resources/60-flyboard-uinput.rules /usr/lib/udev/rules.d/60-flyboard-uinput.rules
+sudo udevadm control --reload-rules
+sudo udevadm trigger --action=change --subsystem-match=misc --sysname-match=uinput
 ```
 
-The active graphical user should have a write ACL on `/dev/uinput`. If the
-device does not exist, load its kernel module with `sudo modprobe uinput` and
-start FlyBoard again.
-
-## Build
+### Build commands
 
 ```bash
 pnpm install
-pnpm tauri:linux dev
-pnpm tauri:linux:build
+pnpm tauri:linux dev          # Development run
+pnpm tauri:linux:build        # Build .deb and .AppImage
 ```
 
-Close FlyBoard before rebuilding an AppImage. Linux cannot replace an
-executable while it is running, which causes `Text file busy (os error 26)`.
-To identify a process holding a generated artifact, run:
+### Important notes
+
+- **Close FlyBoard before rebuilding an AppImage**. Linux cannot replace an executable while it is running (`Text file busy` error).
+- To identify a process holding a generated artifact:
 
 ```bash
 fuser -v src-tauri/target/release/bundle/appimage/*.AppImage
