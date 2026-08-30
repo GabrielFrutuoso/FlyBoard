@@ -21,7 +21,7 @@ sudo apt install ./flyboard_*.deb
 
 3. **Restart your graphical session** (recommended):
 
-> ℹ️ The package automatically reloads udev rules after installation. However, your session may need to restart 
+> ℹ️ The package automatically reloads udev rules after installation. However, your session may need to restart
 > to apply permission changes. If FlyBoard reports "Permission Denied" on first run, log out and back in.
 
 4. **Verify setup** (optional, but helpful for troubleshooting):
@@ -46,7 +46,8 @@ You should see that your user has read and write access (`rw-`).
 
 **Cause**: You haven't restarted your session after installing the `.deb`.
 
-**Fix**: 
+**Fix**:
+
 1. Log out and back in (or reboot your system)
 2. Try FlyBoard again
 
@@ -55,6 +56,7 @@ You should see that your user has read and write access (`rw-`).
 **Cause**: The Linux kernel module isn't loaded.
 
 **Fix**:
+
 ```bash
 sudo modprobe uinput
 ```
