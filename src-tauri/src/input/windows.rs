@@ -19,6 +19,16 @@ const MAPVK_VSC_TO_VK_EX: u32 = 3;
 /// Stamped on every event we synthesize so the keyboard hook can tell them from real presses.
 pub(super) const INJECTED_TAG: usize = 0x464C_5942;
 
+/// FlyBoard's shared key table stores Linux evdev codes, which coincide with Windows scan
+/// codes for standard keys but diverge for a few. Known divergences get translated here.
+fn evdev_to_scan_code(code: u16) -> u32 {
+    match code {
+        // evdev KEY_RO (ABNT2 "?/") is 89; its Windows scan code is 0x73.
+        89 => 0x73,
+        _ => u32::from(code),
+    }
+}
+
 fn foreground_thread() -> u32 {
     unsafe {
         let hwnd = GetForegroundWindow();
@@ -172,7 +182,8 @@ pub fn send(key: KeyId, modifiers: &[Modifier]) -> Result<(), String> {
         }),
         KeyId::Modifier(modifier) => Some(modifier_vk(modifier)),
         KeyId::Physical(scan_code) => {
-            let vk = unsafe { MapVirtualKeyExW(u32::from(scan_code), MAPVK_VSC_TO_VK_EX, hkl) };
+            let vk =
+                unsafe { MapVirtualKeyExW(evdev_to_scan_code(scan_code), MAPVK_VSC_TO_VK_EX, hkl) };
             (vk != 0).then_some(vk as VIRTUAL_KEY)
         }
         KeyId::Char(c) => resolve_char(c, hkl, &mut modifiers),
