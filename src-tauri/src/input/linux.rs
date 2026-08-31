@@ -236,6 +236,8 @@ fn key_code(key: KeyId) -> Result<(KeyCode, bool), String> {
             NamedKey::Down => (KeyCode::KEY_DOWN, false),
             NamedKey::Left => (KeyCode::KEY_LEFT, false),
             NamedKey::Right => (KeyCode::KEY_RIGHT, false),
+            NamedKey::PageUp => (KeyCode::KEY_PAGEUP, false),
+            NamedKey::PageDown => (KeyCode::KEY_PAGEDOWN, false),
             NamedKey::Function(number) => match number {
                 1 => (KeyCode::KEY_F1, false),
                 2 => (KeyCode::KEY_F2, false),
