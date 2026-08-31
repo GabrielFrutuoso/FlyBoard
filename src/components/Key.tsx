@@ -7,14 +7,16 @@ import {
   ArrowUp,
   ArrowLeft,
   ArrowRight,
+  ChevronsUp,
+  ChevronsDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface KeyProps {
   label: string;
   onClick: () => void;
-  /** Relative width within its row. */
-  units?: number;
+  /** Number of grid columns this key spans within its row's shared column template. */
+  span?: number;
   className?: string;
   isActive?: boolean;
   isPressed?: boolean;
@@ -51,6 +53,10 @@ const getKeyIcon = (label: string) => {
       return <ArrowLeft size={ICON_SIZE} />;
     case "Right":
       return <ArrowRight size={ICON_SIZE} />;
+    case "PageUp":
+      return <ChevronsUp size={ICON_SIZE} />;
+    case "PageDown":
+      return <ChevronsDown size={ICON_SIZE} />;
     default:
       return null;
   }
@@ -59,7 +65,7 @@ const getKeyIcon = (label: string) => {
 export const Key = ({
   label,
   onClick,
-  units = 1,
+  span = 4,
   className = "",
   isActive = false,
   isPressed = false,
@@ -70,10 +76,10 @@ export const Key = ({
     <Button
       variant="outline"
       size="xs"
-      className={`flex h-full min-w-0 shrink basis-0 items-center justify-center overflow-hidden rounded-xs border border-zinc-800 text-zinc-200 transition-colors hover:bg-zinc-700 hover:text-zinc-100 ${className} ${
+      className={`flex h-full min-w-0 items-center justify-center overflow-hidden rounded-xs border border-zinc-800 text-zinc-200 transition-colors hover:bg-zinc-700 hover:text-zinc-100 ${className} ${
         isPressed ? "bg-zinc-700" : isActive ? "bg-zinc-700" : "bg-zinc-900"
       }`}
-      style={{ flexGrow: units }}
+      style={{ gridColumn: `span ${span}` }}
       onMouseDown={(event) => {
         event.preventDefault();
         playKeySound();
