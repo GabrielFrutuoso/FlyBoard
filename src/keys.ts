@@ -16,29 +16,30 @@ export const NAMED_KEYS: readonly string[] = [
   "Down",
   "Left",
   "Right",
+  "PageUp",
+  "PageDown",
   ...FUNCTION_KEYS,
 ];
 
 export const LAYOUT_ROWS: Record<Layout, readonly (readonly string[])[]> = {
   "pt-br": [
-    ["'", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "="],
     [
-      "Tab",
-      "q",
-      "w",
-      "e",
-      "r",
-      "t",
-      "y",
-      "u",
-      "i",
-      "o",
-      "p",
-      "´",
-      "[",
-      "]",
+      "'",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "0",
+      "-",
+      "=",
       "Backspace",
     ],
+    ["Tab", "q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "´", "[", "]"],
     ["Caps", "a", "s", "d", "f", "g", "h", "j", "k", "l", "ç", "~", "Enter"],
     [
       "Shift",
@@ -51,35 +52,51 @@ export const LAYOUT_ROWS: Record<Layout, readonly (readonly string[])[]> = {
       "n",
       "m",
       ",",
-      "Up",
       ".",
       ";",
       "/",
+      "PageUp",
+      "Up",
+      "PageDown",
     ],
-    ["Ctrl", "Fn", "Win", "Space", "AltGr", "Left", "Down", "Right", "Alt"],
+    ["Ctrl", "Fn", "Win", "Space", "AltGr", "Alt", "Left", "Down", "Right"],
   ],
   en: [
-    ["`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "="],
     [
-      "Tab",
-      "q",
-      "w",
-      "e",
-      "r",
-      "t",
-      "y",
-      "u",
-      "i",
-      "o",
-      "p",
-      "[",
-      "]",
-      "\\",
+      "`",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "0",
+      "-",
+      "=",
       "Backspace",
     ],
+    ["Tab", "q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "[", "]", "\\"],
     ["Caps", "a", "s", "d", "f", "g", "h", "j", "k", "l", ";", "'", "Enter"],
-    ["Shift", "z", "x", "c", "v", "b", "n", "m", ",", "Up", ".", "/"],
-    ["Ctrl", "Fn", "Win", "Space", "AltGr", "Left", "Down", "Right", "Alt"],
+    [
+      "Shift",
+      "z",
+      "x",
+      "c",
+      "v",
+      "b",
+      "n",
+      "m",
+      ",",
+      ".",
+      "/",
+      "PageUp",
+      "Up",
+      "PageDown",
+    ],
+    ["Ctrl", "Fn", "Win", "Space", "AltGr", "Alt", "Left", "Down", "Right"],
   ],
 };
 
@@ -287,19 +304,28 @@ export const SHIFT_MAP: Record<Layout, Record<string, string>> = {
   },
 };
 
-// Relative widths, chosen so every row adds up to the same total.
-export const KEY_UNITS: Record<string, number> = {
+// Relative widths, tuned so every row's keys render at a consistent size: rows share a
+// row-total of ~15 units (17 for the shift/bottom rows, which carry the extra arrow cluster).
+const BASE_KEY_UNITS: Record<string, number> = {
   Backspace: 2,
-  Enter: 2,
+  Enter: 2.25,
   Shift: 2,
-  Space: 5.5,
+  Space: 6.5,
   Ctrl: 1.5,
   Win: 1.5,
   Alt: 1.5,
   AltGr: 1.5,
   Fn: 1.5,
-  Tab: 1.5,
+  Tab: 2,
   Caps: 1.75,
+};
+
+// EN's bottom-left row has two fewer keys than pt-br's ABNT2 row (no "\" or ";"), so its
+// Space is narrowed to keep that row's total width equal to the row below it (arrow cluster
+// alignment depends on both rows summing to the same total).
+export const KEY_UNITS: Record<Layout, Record<string, number>> = {
+  "pt-br": BASE_KEY_UNITS,
+  en: { ...BASE_KEY_UNITS, Space: 4.5 },
 };
 
 export const shifted = (key: string, layout: Layout = "pt-br") =>

@@ -3,6 +3,20 @@
 version = 4
 
 [[package]]
+name = "FlyBoard"
+version = "0.1.8"
+dependencies = [
+ "evdev",
+ "gtk",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-opener",
+ "windows-sys 0.52.0",
+]
+
+[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -935,20 +949,6 @@ checksum = "843fba2746e448b37e26a819579957415c8cef339bf08564fe8b7ddbd959573c"
 dependencies = [
  "crc32fast",
  "miniz_oxide",
-]
-
-[[package]]
-name = "flyboard"
-version = "0.1.7"
-dependencies = [
- "evdev",
- "gtk",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-opener",
- "windows-sys 0.52.0",
 ]
 
 [[package]]
