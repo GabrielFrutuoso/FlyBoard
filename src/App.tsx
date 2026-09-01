@@ -26,23 +26,34 @@ function App() {
         </p>
       )}
       <div className="flex min-h-0 w-full flex-1 flex-col gap-1 p-1 text-[clamp(0.75rem,2.4vh,1.125rem)]">
-        {rows.map((row, i) => (
-          <div className="flex w-full min-h-0 flex-1 gap-1" key={i}>
-            {row.map((key, index) => {
-              const effective = resolve(key);
-              return (
-                <Key
-                  key={`${key}-${index}`}
-                  label={getLabel(effective)}
-                  onClick={() => handleKey(effective)}
-                  units={KEY_UNITS[key] ?? 1}
-                  isActive={isLatched(key)}
-                  isPressed={isPressed(effective)}
-                />
-              );
-            })}
-          </div>
-        ))}
+        {rows.map((row, i) => {
+          const units = KEY_UNITS[layout];
+          const spans = row.map((key) => Math.round((units[key] ?? 1) * 4));
+          const totalColumns = spans.reduce((sum, span) => sum + span, 0);
+          return (
+            <div
+              className="grid w-full min-h-0 flex-1 gap-1"
+              style={{
+                gridTemplateColumns: `repeat(${totalColumns}, minmax(0, 1fr))`,
+              }}
+              key={i}
+            >
+              {row.map((key, index) => {
+                const effective = resolve(key);
+                return (
+                  <Key
+                    key={`${key}-${index}`}
+                    label={getLabel(effective)}
+                    onClick={() => handleKey(effective)}
+                    span={spans[index]}
+                    isActive={isLatched(key)}
+                    isPressed={isPressed(effective)}
+                  />
+                );
+              })}
+            </div>
+          );
+        })}
       </div>
     </main>
   );

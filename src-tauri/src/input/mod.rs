@@ -51,6 +51,8 @@ pub enum NamedKey {
     Down,
     Left,
     Right,
+    PageUp,
+    PageDown,
     /// F1 through F12.
     Function(u8),
 }
@@ -88,6 +90,8 @@ impl KeyId {
             "Down" => NamedKey::Down,
             "Left" => NamedKey::Left,
             "Right" => NamedKey::Right,
+            "PageUp" => NamedKey::PageUp,
+            "PageDown" => NamedKey::PageDown,
             _ => {
                 let number = id.strip_prefix('F')?.parse::<u8>().ok()?;
                 if !(1..=12).contains(&number) {
