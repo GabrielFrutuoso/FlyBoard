@@ -1,5 +1,35 @@
 export type Layout = "pt-br" | "en";
 
+export type AccentKey = "´" | "`" | "~" | "^";
+
+export const ACCENT_MARKS: Record<AccentKey, string> = {
+  "´": "\u0301",
+  "`": "\u0300",
+  "~": "\u0303",
+  "^": "\u0302",
+};
+
+const ACCENT_BASES: Record<AccentKey, readonly string[]> = {
+  "´": ["a", "e", "i", "o", "u"],
+  "`": ["a", "e", "i", "o", "u"],
+  "~": ["a", "n", "o"],
+  "^": ["a", "e", "i", "o", "u"],
+};
+
+export const accentFor = (key: string): AccentKey | undefined =>
+  key in ACCENT_MARKS ? (key as AccentKey) : undefined;
+
+export const isAccentBase = (accent: AccentKey, key: string) =>
+  ACCENT_BASES[accent].includes(key.toLowerCase());
+
+export const composeAccent = (accent: AccentKey, text: string) => {
+  if (text === " ") return accent;
+
+  const marked = `${text}${ACCENT_MARKS[accent]}`;
+  const composed = marked.normalize("NFC");
+  return composed === marked ? `${accent}${text}` : composed;
+};
+
 export const MODIFIERS = ["Shift", "Ctrl", "Alt", "AltGr", "Win"] as const;
 export type Modifier = (typeof MODIFIERS)[number];
 
