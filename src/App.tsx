@@ -9,6 +9,7 @@ function App() {
     resolve,
     getLabel,
     isLatched,
+    isAccentAvailable,
     isPressed,
     handleKey,
     inputError,
@@ -48,6 +49,7 @@ function App() {
                     span={spans[index]}
                     isActive={isLatched(key)}
                     isPressed={isPressed(effective)}
+                    isAvailable={isAccentAvailable(effective)}
                   />
                 );
               })}
