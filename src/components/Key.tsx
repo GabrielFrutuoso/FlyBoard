@@ -20,6 +20,7 @@ interface KeyProps {
   className?: string;
   isActive?: boolean;
   isPressed?: boolean;
+  isAvailable?: boolean;
 }
 
 const ICON_SIZE = "1.25em";
@@ -54,11 +55,18 @@ const KEY_ICON_MAP: Record<string, ReactNode> = {
 
 const getKeyIcon = (label: string): ReactNode => KEY_ICON_MAP[label] ?? null;
 
-const getButtonStyles = (isPressed: boolean, isActive: boolean): string => {
+const getButtonStyles = (
+  isPressed: boolean,
+  isActive: boolean,
+  isAvailable: boolean,
+): string => {
   const baseStyles =
     "flex h-full min-w-0 items-center justify-center overflow-hidden rounded-xs border border-zinc-800 text-zinc-200 transition-colors hover:bg-zinc-700 hover:text-zinc-100";
   const stateStyles = isPressed || isActive ? "bg-zinc-700" : "bg-zinc-900";
-  return `${baseStyles} ${stateStyles}`;
+  const availabilityStyles = isAvailable
+    ? ""
+    : "opacity-35 hover:bg-zinc-900 hover:text-zinc-500";
+  return `${baseStyles} ${stateStyles} ${availabilityStyles}`;
 };
 
 export const Key = ({
@@ -68,9 +76,10 @@ export const Key = ({
   className = "",
   isActive = false,
   isPressed = false,
+  isAvailable = true,
 }: KeyProps) => {
   const icon = getKeyIcon(label);
-  const buttonStyles = getButtonStyles(isPressed, isActive);
+  const buttonStyles = getButtonStyles(isPressed, isActive, isAvailable);
 
   return (
     <Button
