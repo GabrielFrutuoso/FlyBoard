@@ -11,6 +11,7 @@ import {
   isModifier,
   MODIFIERS,
   shifted,
+  toKeyId,
   toPhysicalKeyId,
   type Layout,
   type Modifier,
@@ -25,6 +26,7 @@ import {
   runMacroSteps,
   unitsFor,
   type BoardsFile,
+  type KeyStyle,
   type Macro,
 } from "./boardConfig";
 import type { MacroIconId } from "./macroIcons";
@@ -200,7 +202,9 @@ export function useKeyboard() {
   }, []);
 
   // A physically held modifier counts alongside a latched virtual one, so Ctrl (keyboard) + C (VK) works.
-  const physicalModifiers = MODIFIERS.filter((m) => pressedKeys.has(m));
+  const physicalModifiers = MODIFIERS.filter((modifier) =>
+    [...pressedRef.current.values()].includes(modifier),
+  );
   const effectiveModifiers = [
     ...activeModifiers,
     ...physicalModifiers.filter((m) => !activeModifiers.includes(m)),
@@ -217,15 +221,22 @@ export function useKeyboard() {
     const hasShortcutModifier = modifiers.some(
       (modifier) => modifier !== "Shift",
     );
+    const useCustomText =
+      !activeLayout.builtin && isCharKey(key) && !hasShortcutModifier;
     const request =
-      isCharKey(key) && !hasShortcutModifier && !physicalModifierHeld
+      isCharKey(key) &&
+      !hasShortcutModifier &&
+      (!physicalModifierHeld || useCustomText)
         ? invoke<void>("send_text", {
             text:
               text ??
               getKeyLabel(key, modifiers.includes("Shift"), capsActive, layout),
           })
         : invoke<void>("send_key", {
-            key: toPhysicalKeyId(key, layout),
+            key:
+              !activeLayout.builtin && isCharKey(key)
+                ? toKeyId(key)
+                : toPhysicalKeyId(key, layout),
             modifiers,
           });
 
@@ -318,8 +329,11 @@ export function useKeyboard() {
     layouts: layouts.map(({ id, name }) => ({ id, name })),
     setLayout: setActiveLayout,
     rows: activeLayout.rows,
+    backgroundColor: activeLayout.backgroundColor,
     keySizeFor: (rowIndex: number, keyIndex: number) =>
       activeLayout.keySizes?.[rowIndex]?.[keyIndex] ?? DEFAULT_KEY_SIZE,
+    styleFor: (rowIndex: number, keyIndex: number): KeyStyle =>
+      activeLayout.keyStyles?.[rowIndex]?.[keyIndex] ?? {},
     unitFor: (key: string) => unitsFor(key, layout),
     resolve: (key: string) => resolveKey(key, fnActive, layout),
     getLabel: (key: string) => {
