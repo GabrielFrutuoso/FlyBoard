@@ -8,8 +8,9 @@ import {
   type BoardLayout,
   type BoardsFile,
   type KeySize,
+  type KeyStyle,
 } from "../../../utils/boardConfig";
-import type { PaletteMode, SelectedKey } from "./types";
+import type { PaletteMode, SelectedKey, SelectedKeys } from "./types";
 
 export function useLayoutEditor(
   boards: BoardsFile,
@@ -23,6 +24,7 @@ export function useLayoutEditor(
   const [heightDraft, setHeightDraft] = useState("1");
   const [paletteMode, setPaletteMode] = useState<PaletteMode>("add");
   const [newName, setNewName] = useState("");
+  const [selectedKeys, setSelectedKeys] = useState<SelectedKeys>([]);
   const [template, setTemplate] = useState("blank");
 
   const selected =
@@ -38,6 +40,9 @@ export function useLayoutEditor(
 
   const sizeFor = (rowIndex: number, keyIndex: number): KeySize =>
     selected.keySizes?.[rowIndex]?.[keyIndex] ?? DEFAULT_KEY_SIZE;
+
+  const styleFor = (rowIndex: number, keyIndex: number): KeyStyle =>
+    selected.keyStyles?.[rowIndex]?.[keyIndex] ?? {};
 
   useEffect(() => {
     if (!selectedKey) return;
@@ -86,6 +91,9 @@ export function useLayoutEditor(
       const keySizes = rows.map((_, currentRow) => [
         ...(layout.keySizes?.[currentRow] ?? []),
       ]);
+      const keyStyles = rows.map((_, currentRow) => [
+        ...(layout.keyStyles?.[currentRow] ?? []),
+      ]);
       rows[target] = [
         ...rows[target].slice(0, at),
         key,
@@ -96,7 +104,12 @@ export function useLayoutEditor(
         null,
         ...keySizes[target].slice(at),
       ];
-      return { ...layout, rows, keySizes };
+      keyStyles[target] = [
+        ...keyStyles[target].slice(0, at),
+        null,
+        ...keyStyles[target].slice(at),
+      ];
+      return { ...layout, rows, keySizes, keyStyles };
     });
     setSelectedRow(rowIndex);
   };
@@ -142,8 +155,14 @@ export function useLayoutEditor(
           ? (layout.keySizes?.[i] ?? []).filter((_, j) => j !== keyIndex)
           : [...(layout.keySizes?.[i] ?? [])],
       ),
+      keyStyles: layout.rows.map((_, i) =>
+        i === rowIndex
+          ? (layout.keyStyles?.[i] ?? []).filter((_, j) => j !== keyIndex)
+          : [...(layout.keyStyles?.[i] ?? [])],
+      ),
     }));
     setSelectedKey(null);
+    setSelectedKeys([]);
     setPaletteMode("add");
   };
 
@@ -154,6 +173,34 @@ export function useLayoutEditor(
       selectedKey.keyIndex,
       () => DEFAULT_KEY_SIZE,
     );
+  };
+
+  const resetSelectedKeyStyle = () => {
+    if (selectedKeys.length === 0) return;
+    updateKeyStyles(() => ({}));
+  };
+
+  const updateSelectedKeyStyle = (patch: Partial<KeyStyle>) => {
+    if (selectedKeys.length === 0) return;
+    updateKeyStyles((style) => ({ ...style, ...patch }));
+  };
+
+  const updateKeyStyles = (update: (style: KeyStyle) => KeyStyle) => {
+    if (selectedKeys.length === 0) return;
+    updateCustom((layout) => {
+      const keyStyles = layout.rows.map((row, currentRow) =>
+        row.map(
+          (_, currentKey) =>
+            layout.keyStyles?.[currentRow]?.[currentKey] ?? null,
+        ),
+      );
+      selectedKeys.forEach(({ rowIndex, keyIndex }) => {
+        keyStyles[rowIndex][keyIndex] = update(
+          keyStyles[rowIndex][keyIndex] ?? {},
+        );
+      });
+      return { ...layout, keyStyles };
+    });
   };
 
   const commitWidth = (value: string) => {
@@ -208,18 +255,41 @@ export function useLayoutEditor(
     setSelectedId(id);
     setSelectedRow(0);
     setSelectedKey(null);
+    setSelectedKeys([]);
     setPaletteMode("add");
   };
 
-  const selectKey = (selection: SelectedKey, size: KeySize) => {
+  const selectKey = (
+    selection: SelectedKey,
+    size: KeySize,
+    additive = false,
+  ) => {
     if (!editable) return;
-    setSelectedKey(selection);
+    const alreadySelected = selectedKeys.some(
+      (item) =>
+        item.rowIndex === selection.rowIndex &&
+        item.keyIndex === selection.keyIndex,
+    );
+    const nextSelection = additive
+      ? alreadySelected
+        ? selectedKeys.filter(
+            (item) =>
+              item.rowIndex !== selection.rowIndex ||
+              item.keyIndex !== selection.keyIndex,
+          )
+        : [...selectedKeys, selection]
+      : [selection];
+    setSelectedKey(nextSelection.length > 0 ? selection : null);
+    setSelectedKeys(nextSelection);
     setWidthDraft(String(size.width));
     setHeightDraft(String(size.height));
   };
 
   const renameLayout = (name: string) =>
     updateCustom((layout) => ({ ...layout, name }));
+
+  const setBackgroundColor = (backgroundColor: string | undefined) =>
+    updateCustom((layout) => ({ ...layout, backgroundColor }));
 
   const addRow = () =>
     updateCustom((layout) => ({
@@ -229,6 +299,10 @@ export function useLayoutEditor(
         ...(layout.keySizes ?? layout.rows.map((row) => row.map(() => null))),
         [],
       ],
+      keyStyles: [
+        ...(layout.keyStyles ?? layout.rows.map((row) => row.map(() => null))),
+        [],
+      ],
     }));
 
   const removeRow = (rowIndex: number) => {
@@ -236,11 +310,13 @@ export function useLayoutEditor(
       ...layout,
       rows: layout.rows.filter((_, i) => i !== rowIndex),
       keySizes: (layout.keySizes ?? []).filter((_, i) => i !== rowIndex),
+      keyStyles: (layout.keyStyles ?? []).filter((_, i) => i !== rowIndex),
     }));
     setSelectedRow((prev) =>
       Math.max(0, Math.min(prev, selected.rows.length - 2)),
     );
     setSelectedKey(null);
+    setSelectedKeys([]);
     setPaletteMode("add");
   };
 
@@ -251,8 +327,12 @@ export function useLayoutEditor(
       const keySizes = layout.rows.map((_, i) => [
         ...(layout.keySizes?.[i] ?? []),
       ]);
+      const keyStyles = layout.rows.map((_, i) => [
+        ...(layout.keyStyles?.[i] ?? []),
+      ]);
       const [movedRow] = rows.splice(fromIndex, 1);
       const [movedSizes] = keySizes.splice(fromIndex, 1);
+      const [movedStyles] = keyStyles.splice(fromIndex, 1);
       const target = Math.min(
         Math.max(
           insertBeforeIndex > fromIndex
@@ -264,9 +344,11 @@ export function useLayoutEditor(
       );
       rows.splice(target, 0, movedRow);
       keySizes.splice(target, 0, movedSizes ?? []);
-      return { ...layout, rows, keySizes };
+      keyStyles.splice(target, 0, movedStyles ?? []);
+      return { ...layout, rows, keySizes, keyStyles };
     });
     setSelectedKey(null);
+    setSelectedKeys([]);
   };
 
   const createLayout = () => {
@@ -291,8 +373,12 @@ export function useLayoutEditor(
       name: `${selected.name} copy`,
       base: selected.base,
       rows: selected.rows.map((row) => [...row]),
+      backgroundColor: selected.backgroundColor,
       keySizes: selected.keySizes?.map((row) =>
         row.map((size) => (size ? { ...size } : null)),
+      ),
+      keyStyles: selected.keyStyles?.map((row) =>
+        row.map((style) => (style ? { ...style } : null)),
       ),
     };
     onChange({ ...boards, layouts: [...boards.layouts, copy] });
@@ -314,9 +400,11 @@ export function useLayoutEditor(
     macrosById,
     labelFor,
     sizeFor,
+    styleFor,
     selectedRow,
     setSelectedRow,
     selectedKey,
+    selectedKeys,
     widthDraft,
     heightDraft,
     paletteMode,
@@ -328,10 +416,13 @@ export function useLayoutEditor(
     selectLayout,
     selectKey,
     renameLayout,
+    setBackgroundColor,
     insertKeyAt,
     pickPaletteKey,
     removeSelectedKey,
     resetSelectedKeySize,
+    resetSelectedKeyStyle,
+    updateSelectedKeyStyle,
     onWidthDraftChange,
     onHeightDraftChange,
     commitWidth,

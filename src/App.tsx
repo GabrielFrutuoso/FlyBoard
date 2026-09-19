@@ -25,8 +25,10 @@ function Keyboard() {
     layouts,
     setLayout,
     rows,
+    backgroundColor,
     unitFor,
     keySizeFor,
+    styleFor,
   } = useKeyboard();
 
   const rowSpans = rows.map((row, rowIndex) =>
@@ -67,7 +69,10 @@ function Keyboard() {
   }, [minimumHeight, minimumWidth]);
 
   return (
-    <main className="flex h-screen w-screen flex-col overflow-hidden bg-zinc-950">
+    <main
+      className="flex h-screen w-screen flex-col overflow-hidden bg-zinc-950"
+      style={backgroundColor ? { backgroundColor } : undefined}
+    >
       <Header
         layouts={layouts}
         activeLayoutId={layoutId}
@@ -82,17 +87,21 @@ function Keyboard() {
         rows={rows}
         unitFor={unitFor}
         keySizeFor={keySizeFor}
-        renderKey={(key, _rowIndex, _keyIndex, span, size) => {
+        renderKey={(key, rowIndex, keyIndex, span, size) => {
           const effective = resolve(key);
+          const keyStyle = styleFor(rowIndex, keyIndex);
           return (
             <Key
-              key={`${key}-${_rowIndex}-${_keyIndex}`}
+              key={`${key}-${rowIndex}-${keyIndex}`}
               label={getLabel(effective)}
               macroIcon={getMacroIcon(effective)}
               macroName={getMacroName(effective)}
               size={size}
               onClick={() => handleKey(effective)}
               span={span}
+              labelColor={keyStyle.labelColor}
+              borderColor={keyStyle.borderColor}
+              backgroundColor={keyStyle.backgroundColor}
               isActive={isLatched(key)}
               isPressed={isPressed(effective)}
               isAvailable={isAccentAvailable(effective)}

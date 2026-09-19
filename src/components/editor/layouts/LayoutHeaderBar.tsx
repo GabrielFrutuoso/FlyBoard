@@ -8,6 +8,7 @@ interface LayoutHeaderBarProps {
   layout: BoardLayout;
   editable: boolean;
   onRename: (name: string) => void;
+  onBackgroundColorChange: (color: string | undefined) => void;
   onDuplicate: () => void;
   onDelete: () => void;
 }
@@ -17,6 +18,7 @@ export function LayoutHeaderBar({
   layout,
   editable,
   onRename,
+  onBackgroundColorChange,
   onDuplicate,
   onDelete,
 }: LayoutHeaderBarProps) {
@@ -38,6 +40,25 @@ export function LayoutHeaderBar({
         <span className="rounded-sm bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-400">
           Built-in (read-only)
         </span>
+      )}
+      {editable && (
+        <label className="flex items-center gap-1 text-[10px] text-zinc-500">
+          Keyboard background
+          <input
+            type="color"
+            value={layout.backgroundColor || "#09090b"}
+            onChange={(event) => onBackgroundColorChange(event.target.value)}
+            className="h-6 w-8 cursor-pointer rounded-sm border border-zinc-700 bg-zinc-900 p-0.5"
+            aria-label="Keyboard background color"
+          />
+          <button
+            type="button"
+            onClick={() => onBackgroundColorChange(undefined)}
+            className="cursor-pointer text-[10px] text-zinc-500 hover:text-zinc-200"
+          >
+            Reset
+          </button>
+        </label>
       )}
       <button
         type="button"

@@ -15,13 +15,21 @@ export interface BoardLayout {
   name: string;
   base: Layout;
   rows: string[][];
+  backgroundColor?: string;
   keySizes?: (KeySize | null)[][];
+  keyStyles?: (KeyStyle | null)[][];
   builtin?: boolean;
 }
 
 export interface KeySize {
   width: number;
   height: number;
+}
+
+export interface KeyStyle {
+  labelColor?: string;
+  borderColor?: string;
+  backgroundColor?: string;
 }
 
 export const DEFAULT_KEY_SIZE: KeySize = { width: 1, height: 1 };

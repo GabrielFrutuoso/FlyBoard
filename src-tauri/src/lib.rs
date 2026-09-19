@@ -20,13 +20,28 @@ struct KeySize {
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+struct KeyStyle {
+    #[serde(default)]
+    label_color: Option<String>,
+    #[serde(default)]
+    border_color: Option<String>,
+    #[serde(default)]
+    background_color: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 struct BoardLayout {
     id: String,
     name: String,
     base: String,
     rows: Vec<Vec<String>>,
     #[serde(default)]
+    background_color: Option<String>,
+    #[serde(default)]
     key_sizes: Option<Vec<Vec<Option<KeySize>>>>,
+    #[serde(default)]
+    key_styles: Option<Vec<Vec<Option<KeyStyle>>>>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

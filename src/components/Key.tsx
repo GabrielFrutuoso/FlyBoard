@@ -11,13 +11,13 @@ import {
   ChevronsDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { type ReactNode } from "react";
+import { type MouseEvent, type ReactNode } from "react";
 import { getMacroIcon, type MacroIconId } from "../utils/macroIcons";
 import type { KeySize } from "../utils/boardConfig";
 
 interface KeyProps {
   label: string;
-  onClick: () => void;
+  onClick: (event: MouseEvent<HTMLButtonElement>) => void;
   span?: number;
   className?: string;
   isActive?: boolean;
@@ -26,6 +26,9 @@ interface KeyProps {
   macroIcon?: MacroIconId;
   macroName?: string;
   size?: KeySize;
+  labelColor?: string;
+  borderColor?: string;
+  backgroundColor?: string;
 }
 
 const ICON_SIZE = "1.25em";
@@ -89,6 +92,9 @@ export const Key = ({
   macroIcon,
   macroName,
   size = { width: 1, height: 1 },
+  labelColor,
+  borderColor,
+  backgroundColor,
 }: KeyProps) => {
   const MacroIcon = getMacroIcon(macroIcon);
   const icon = MacroIcon ? <MacroIcon size={ICON_SIZE} /> : getKeyIcon(label);
@@ -104,6 +110,9 @@ export const Key = ({
         justifySelf: "center",
         width: "100%",
         height: `${size.height * 100}%`,
+        ...(borderColor ? { borderColor } : {}),
+        ...(backgroundColor ? { backgroundColor } : {}),
+        ...(labelColor ? { color: labelColor } : {}),
       }}
       onMouseDown={(event) => {
         event.preventDefault();
