@@ -238,6 +238,10 @@ fn key_code(key: KeyId) -> Result<(KeyCode, bool), String> {
             NamedKey::Right => (KeyCode::KEY_RIGHT, false),
             NamedKey::PageUp => (KeyCode::KEY_PAGEUP, false),
             NamedKey::PageDown => (KeyCode::KEY_PAGEDOWN, false),
+            NamedKey::Insert => (KeyCode::KEY_INSERT, false),
+            NamedKey::Delete => (KeyCode::KEY_DELETE, false),
+            NamedKey::Home => (KeyCode::KEY_HOME, false),
+            NamedKey::End => (KeyCode::KEY_END, false),
             NamedKey::Function(number) => match number {
                 1 => (KeyCode::KEY_F1, false),
                 2 => (KeyCode::KEY_F2, false),

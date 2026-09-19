@@ -56,6 +56,10 @@ const KEY_ICON_MAP: Record<string, ReactNode> = {
   Right: <ArrowRight size={ICON_SIZE} />,
   PageUp: <ChevronsUp size={ICON_SIZE} />,
   PageDown: <ChevronsDown size={ICON_SIZE} />,
+  Insert: "Ins",
+  Delete: <Delete size={ICON_SIZE} />,
+  Home: "Home",
+  End: "End",
 };
 
 const getKeyIcon = (label: string): ReactNode => KEY_ICON_MAP[label] ?? null;
