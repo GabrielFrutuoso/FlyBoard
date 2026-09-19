@@ -9,7 +9,6 @@ import {
   isAccentBase,
   isCharKey,
   isModifier,
-  LAYOUT_ROWS,
   MODIFIERS,
   shifted,
   toPhysicalKeyId,
@@ -17,6 +16,18 @@ import {
   type Modifier,
 } from "../keys";
 import type { AccentKey } from "../keys";
+import {
+  allLayouts,
+  BUILTIN_LAYOUTS,
+  DEFAULT_KEY_SIZE,
+  loadBoards,
+  parseMacroKey,
+  runMacroSteps,
+  unitsFor,
+  type BoardsFile,
+  type Macro,
+} from "./boardConfig";
+import type { MacroIconId } from "./macroIcons";
 
 const isLetter = (key: string) => /^[a-z]$/.test(key);
 
@@ -44,21 +55,28 @@ const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
 export function useKeyboard() {
-  const [layout, setLayout] = useState<Layout>(() => {
-    const saved = localStorage.getItem("flyboard_layout");
-    return saved === "en" || saved === "pt-br" ? saved : "pt-br";
+  const [boards, setBoards] = useState<BoardsFile>({ layouts: [], macros: [] });
+  const [layoutId, setLayoutId] = useState<string>(() => {
+    const saved =
+      localStorage.getItem("flyboard_layout_id") ??
+      localStorage.getItem("flyboard_layout");
+    return saved ?? "pt-br";
   });
+  const layouts = allLayouts(boards);
+  const activeLayout =
+    layouts.find((candidate) => candidate.id === layoutId) ??
+    BUILTIN_LAYOUTS[0];
+  const layout: Layout = activeLayout.base;
   const layoutRef = useRef<Layout>(layout);
   useEffect(() => {
     layoutRef.current = layout;
   }, [layout]);
 
-  const toggleLayout = () => {
-    setLayout((prev) => {
-      const next = prev === "pt-br" ? "en" : "pt-br";
-      localStorage.setItem("flyboard_layout", next);
-      return next;
-    });
+  const macrosById = new Map(boards.macros.map((macro) => [macro.id, macro]));
+
+  const setActiveLayout = (id: string) => {
+    setLayoutId(id);
+    localStorage.setItem("flyboard_layout_id", id);
     setActiveAccent(null);
   };
 
@@ -108,40 +126,68 @@ export function useKeyboard() {
     syncCapsLock();
     syncInputStatus();
 
-    listen<{ key: string; source?: string; down: boolean }>("physical-key", ({ payload }) => {
-      const { key, down, source = key } = payload;
-      const mappedKey = getPhysicalKeyLabel(key, layoutRef.current);
+    listen<{ key: string; source?: string; down: boolean }>(
+      "physical-key",
+      ({ payload }) => {
+        const { key, down, source = key } = payload;
+        const mappedKey = getPhysicalKeyLabel(key, layoutRef.current);
 
-      if (down) pressedRef.current.set(source, mappedKey);
-      else pressedRef.current.delete(source);
+        if (down) pressedRef.current.set(source, mappedKey);
+        else pressedRef.current.delete(source);
 
-      if (down && mappedKey !== "Caps" && !isModifier(mappedKey)) {
-        const shiftHeld =
-          pressedRef.current.has("Shift") ||
-          activeModifiersRef.current.includes("Shift");
-        const physicalLabel = getKeyLabel(
-          mappedKey,
-          shiftHeld,
-          capsActiveRef.current,
-          layoutRef.current,
-        );
-        const accent = accentFor(physicalLabel);
-
-        if (accent) {
-          setActiveAccent((current) =>
-            current?.key === accent
-              ? null
-              : { source: mappedKey, key: accent, physical: true },
+        if (down && mappedKey !== "Caps" && !isModifier(mappedKey)) {
+          const shiftHeld =
+            pressedRef.current.has("Shift") ||
+            activeModifiersRef.current.includes("Shift");
+          const physicalLabel = getKeyLabel(
+            mappedKey,
+            shiftHeld,
+            capsActiveRef.current,
+            layoutRef.current,
           );
-        } else if (activeAccentRef.current) {
-          setActiveAccent(null);
-        }
-      }
+          const accent = accentFor(physicalLabel);
 
-      // Read on release: at hook time the lock hasn't flipped yet.
-      if (mappedKey === "Caps" && !down) syncCapsLock();
-      setPressedKeys(new Set(pressedRef.current.values()));
-    }).then((unlisten) => {
+          if (accent) {
+            setActiveAccent((current) =>
+              current?.key === accent
+                ? null
+                : { source: mappedKey, key: accent, physical: true },
+            );
+          } else if (activeAccentRef.current) {
+            setActiveAccent(null);
+          }
+        }
+
+        // Read on release: at hook time the lock hasn't flipped yet.
+        if (mappedKey === "Caps" && !down) syncCapsLock();
+        setPressedKeys(new Set(pressedRef.current.values()));
+      },
+    ).then((unlisten) => {
+      // StrictMode remounts before this resolves; without the guard a second listener survives.
+      if (cancelled) unlisten();
+      else stop = unlisten;
+    });
+
+    return () => {
+      cancelled = true;
+      stop?.();
+    };
+  }, []);
+
+  // Custom layouts and macros live in boards.json; the editor window announces saves so the
+  // keyboard picks up changes without a restart.
+  useEffect(() => {
+    let stop: (() => void) | undefined;
+    let cancelled = false;
+
+    const refresh = () => {
+      loadBoards()
+        .then(setBoards)
+        .catch((error) => setInputError(errorMessage(error)));
+    };
+    refresh();
+
+    listen("boards-changed", refresh).then((unlisten) => {
       // StrictMode remounts before this resolves; without the guard a second listener survives.
       if (cancelled) unlisten();
       else stop = unlisten;
@@ -200,7 +246,19 @@ export function useKeyboard() {
     }
   };
 
+  const runMacro = (macro: Macro) => {
+    runMacroSteps(macro.steps, layoutRef.current)
+      .then(() => setInputError(null))
+      .catch((error) => setInputError(errorMessage(error)));
+  };
+
   const handleKey = (key: string) => {
+    const macroId = parseMacroKey(key);
+    if (macroId !== null) {
+      const macro = macrosById.get(macroId);
+      if (macro) runMacro(macro);
+      return;
+    }
     if (key === "Caps") {
       // Toggle the real lock, then read back what the OS actually settled on.
       send("Caps", []).then(syncCapsLock);
@@ -246,10 +304,9 @@ export function useKeyboard() {
     if (activeAccent && !activeAccent.physical && !canCompose) {
       void send(activeAccent.key, [], activeAccent.key);
     }
-    const composedText =
-      canCompose
-        ? composeAccent(activeAccent.key, text)
-        : undefined;
+    const composedText = canCompose
+      ? composeAccent(activeAccent.key, text)
+      : undefined;
     setActiveAccent(null);
     send(key, effectiveModifiers, composedText, physicalModifierHeld);
     setUnusedModifiers([]);
@@ -257,14 +314,32 @@ export function useKeyboard() {
 
   return {
     layout,
-    toggleLayout,
-    rows: LAYOUT_ROWS[layout],
+    layoutId: activeLayout.id,
+    layouts: layouts.map(({ id, name }) => ({ id, name })),
+    setLayout: setActiveLayout,
+    rows: activeLayout.rows,
+    keySizeFor: (rowIndex: number, keyIndex: number) =>
+      activeLayout.keySizes?.[rowIndex]?.[keyIndex] ?? DEFAULT_KEY_SIZE,
+    unitFor: (key: string) => unitsFor(key, layout),
     resolve: (key: string) => resolveKey(key, fnActive, layout),
     getLabel: (key: string) => {
+      const macroId = parseMacroKey(key);
+      if (macroId !== null) {
+        const name = macrosById.get(macroId)?.name ?? "?";
+        return name.length > 8 ? `${name.slice(0, 7)}…` : name;
+      }
       const label = getKeyLabel(key, shiftActive, capsActive, layout);
       return activeAccent && isAccentBase(activeAccent.key, label)
         ? composeAccent(activeAccent.key, label)
         : label;
+    },
+    getMacroIcon: (key: string): MacroIconId | undefined => {
+      const macroId = parseMacroKey(key);
+      return macroId === null ? undefined : macrosById.get(macroId)?.icon;
+    },
+    getMacroName: (key: string): string | undefined => {
+      const macroId = parseMacroKey(key);
+      return macroId === null ? undefined : macrosById.get(macroId)?.name;
     },
     isLatched: (key: string) =>
       key === "Caps"
@@ -275,7 +350,7 @@ export function useKeyboard() {
             ? true
             : isModifier(key) && activeModifiers.includes(key),
     isAccentAvailable: (key: string) => {
-      if (!activeAccent) return true;
+      if (!activeAccent || parseMacroKey(key) !== null) return true;
       const label = getKeyLabel(key, shiftActive, capsActive, layout);
       return (
         !isCharKey(key) ||
