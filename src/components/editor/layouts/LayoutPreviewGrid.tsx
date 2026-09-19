@@ -92,6 +92,7 @@ export function LayoutPreviewGrid({
             const rowLength = layout.rows[rowIndex]?.length ?? 0;
             const keyElement = (
               <Key
+                key={`${key}-${rowIndex}-${keyIndex}`}
                 label={labelFor(key)}
                 macroIcon={
                   macroId === null ? undefined : macrosById.get(macroId)?.icon
@@ -100,6 +101,7 @@ export function LayoutPreviewGrid({
                   macroId === null ? undefined : macrosById.get(macroId)?.name
                 }
                 size={keySize}
+                span={span}
                 onClick={() => {
                   if (editable) onSelectKey({ rowIndex, keyIndex }, keySize);
                 }}
@@ -111,9 +113,7 @@ export function LayoutPreviewGrid({
               />
             );
             if (!editable) {
-              return (
-                <div key={`${key}-${rowIndex}-${keyIndex}`}>{keyElement}</div>
-              );
+              return keyElement;
             }
             return (
               <KeySlot
