@@ -1,5 +1,8 @@
 mod input;
 
+use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Emitter, Manager};
+
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     GetWindowLongPtrW, SetWindowLongPtrW, GWL_EXSTYLE, WS_EX_NOACTIVATE,
@@ -7,6 +10,75 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 
 #[cfg(target_os = "linux")]
 use gtk::prelude::*;
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct KeySize {
+    width: f64,
+    height: f64,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct BoardLayout {
+    id: String,
+    name: String,
+    base: String,
+    rows: Vec<Vec<String>>,
+    #[serde(default)]
+    key_sizes: Option<Vec<Vec<Option<KeySize>>>>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(tag = "type", rename_all = "lowercase")]
+enum MacroStep {
+    Keys { keys: Vec<String> },
+    Text { text: String },
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct Macro {
+    id: String,
+    name: String,
+    #[serde(default)]
+    icon: Option<String>,
+    steps: Vec<MacroStep>,
+}
+
+#[derive(Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+struct BoardsFile {
+    layouts: Vec<BoardLayout>,
+    macros: Vec<Macro>,
+}
+
+fn boards_path(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir.join("boards.json"))
+}
+
+#[tauri::command]
+fn read_boards(app: AppHandle) -> Result<BoardsFile, String> {
+    let path = boards_path(&app)?;
+    match std::fs::read_to_string(&path) {
+        Ok(contents) => serde_json::from_str(&contents)
+            .map_err(|e| format!("invalid boards.json: {e}")),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            Ok(BoardsFile::default())
+        }
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+#[tauri::command]
+fn write_boards(app: AppHandle, boards: BoardsFile) -> Result<(), String> {
+    let path = boards_path(&app)?;
+    let json = serde_json::to_string_pretty(&boards).map_err(|e| e.to_string())?;
+    std::fs::write(&path, json).map_err(|e| e.to_string())?;
+    app.emit("boards-changed", ()).map_err(|e| e.to_string())
+}
 
 #[cfg(target_os = "linux")]
 fn configure_linux_window(window: &gtk::ApplicationWindow) {
@@ -85,7 +157,14 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![send_key, send_text, caps_lock, input_status])
+        .invoke_handler(tauri::generate_handler![
+            send_key,
+            send_text,
+            caps_lock,
+            input_status,
+            read_boards,
+            write_boards
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
