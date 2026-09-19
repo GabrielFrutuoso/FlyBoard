@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { type ReactNode } from "react";
+import { getMacroIcon, type MacroIconId } from "../utils/macroIcons";
+import type { KeySize } from "../utils/boardConfig";
 
 interface KeyProps {
   label: string;
@@ -21,6 +23,9 @@ interface KeyProps {
   isActive?: boolean;
   isPressed?: boolean;
   isAvailable?: boolean;
+  macroIcon?: MacroIconId;
+  macroName?: string;
+  size?: KeySize;
 }
 
 const ICON_SIZE = "1.25em";
@@ -77,22 +82,32 @@ export const Key = ({
   isActive = false,
   isPressed = false,
   isAvailable = true,
+  macroIcon,
+  macroName,
+  size = { width: 1, height: 1 },
 }: KeyProps) => {
-  const icon = getKeyIcon(label);
+  const MacroIcon = getMacroIcon(macroIcon);
+  const icon = MacroIcon ? <MacroIcon size={ICON_SIZE} /> : getKeyIcon(label);
   const buttonStyles = getButtonStyles(isPressed, isActive, isAvailable);
 
   return (
     <Button
       variant="outline"
       size="xs"
-      className={`${buttonStyles} ${className}`}
-      style={{ gridColumn: `span ${span}` }}
+      className={`${buttonStyles} px-1 ${className}`}
+      style={{
+        gridColumn: `span ${span}`,
+        justifySelf: "center",
+        width: "100%",
+        height: `${size.height * 100}%`,
+      }}
       onMouseDown={(event) => {
         event.preventDefault();
         audioPlayer.play();
       }}
       onClick={onClick}
-      title={label}
+      title={macroName ?? label}
+      aria-label={macroName ?? label}
     >
       {icon ? icon : label}
     </Button>
