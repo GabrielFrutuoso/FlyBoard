@@ -3,7 +3,6 @@ import { listen } from "@tauri-apps/api/event";
 import { useEffect, useRef, useState } from "react";
 import {
   accentFor,
-  composeAccent,
   FN_MAP,
   getPhysicalKeyLabel,
   isAccentBase,
@@ -16,7 +15,6 @@ import {
   type Layout,
   type Modifier,
 } from "../keys";
-import type { AccentKey } from "../keys";
 import {
   allLayouts,
   BUILTIN_LAYOUTS,
@@ -47,6 +45,25 @@ const getKeyLabel = (
 
 const resolveKey = (key: string, fnActive: boolean, layout: Layout) =>
   fnActive && FN_MAP[layout]?.[key] ? FN_MAP[layout][key] : key;
+
+const deadKeyMark = (key: string, layout: Layout) => {
+  if (layout !== "pt-br") return undefined;
+  return (
+    {
+      "´": "\u0301",
+      "`": "\u0300",
+      "~": "\u0303",
+      "^": "\u0302",
+    }[key] ?? undefined
+  );
+};
+
+const composeDeadKey = (deadKey: string, mark: string, text: string) => {
+  if (text === " ") return deadKey;
+  const marked = `${text}${mark}`;
+  const composed = marked.normalize("NFC");
+  return composed === marked ? `${deadKey}${text}` : composed;
+};
 
 interface InputStatus {
   ready: boolean;
@@ -79,36 +96,21 @@ export function useKeyboard() {
   const setActiveLayout = (id: string) => {
     setLayoutId(id);
     localStorage.setItem("flyboard_layout_id", id);
-    setActiveAccent(null);
+    setPendingDeadKey(null);
   };
 
   const [activeModifiers, setActiveModifiers] = useState<Modifier[]>([]);
   const [unusedModifiers, setUnusedModifiers] = useState<Modifier[]>([]);
   const [capsActive, setCapsActive] = useState(false);
   const [fnActive, setFnActive] = useState(false);
-  const [activeAccent, setActiveAccent] = useState<{
+  const [pendingDeadKey, setPendingDeadKey] = useState<{
     source: string;
-    key: AccentKey;
-    physical: boolean;
+    key: string;
+    mark: string;
   } | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
   const [pressedKeys, setPressedKeys] = useState<Set<string>>(new Set());
   const pressedRef = useRef<Map<string, string>>(new Map());
-  const activeModifiersRef = useRef(activeModifiers);
-  const capsActiveRef = useRef(capsActive);
-  const activeAccentRef = useRef(activeAccent);
-
-  useEffect(() => {
-    activeModifiersRef.current = activeModifiers;
-  }, [activeModifiers]);
-
-  useEffect(() => {
-    capsActiveRef.current = capsActive;
-  }, [capsActive]);
-
-  useEffect(() => {
-    activeAccentRef.current = activeAccent;
-  }, [activeAccent]);
 
   // The OS lock is the source of truth; tracking it locally would drift out of sync.
   const syncCapsLock = () => {
@@ -136,29 +138,6 @@ export function useKeyboard() {
 
         if (down) pressedRef.current.set(source, mappedKey);
         else pressedRef.current.delete(source);
-
-        if (down && mappedKey !== "Caps" && !isModifier(mappedKey)) {
-          const shiftHeld =
-            pressedRef.current.has("Shift") ||
-            activeModifiersRef.current.includes("Shift");
-          const physicalLabel = getKeyLabel(
-            mappedKey,
-            shiftHeld,
-            capsActiveRef.current,
-            layoutRef.current,
-          );
-          const accent = accentFor(physicalLabel);
-
-          if (accent) {
-            setActiveAccent((current) =>
-              current?.key === accent
-                ? null
-                : { source: mappedKey, key: accent, physical: true },
-            );
-          } else if (activeAccentRef.current) {
-            setActiveAccent(null);
-          }
-        }
 
         // Read on release: at hook time the lock hasn't flipped yet.
         if (mappedKey === "Caps" && !down) syncCapsLock();
@@ -288,37 +267,29 @@ export function useKeyboard() {
     const shortcutModifiers = effectiveModifiers.filter(
       (modifier) => modifier !== "Shift",
     );
-    const accent =
+    const mark =
       isCharKey(key) && shortcutModifiers.length === 0
-        ? accentFor(text)
+        ? deadKeyMark(text, layout)
         : undefined;
 
-    if (accent) {
-      if (activeAccent?.key === accent) {
-        setActiveAccent(null);
-        send(key, effectiveModifiers, accent, physicalModifierHeld);
+    if (mark) {
+      if (pendingDeadKey?.mark === mark) {
+        setPendingDeadKey(null);
+        send(key, effectiveModifiers, pendingDeadKey.key, physicalModifierHeld);
         setUnusedModifiers([]);
         return;
       }
-      if (activeAccent && !activeAccent.physical) {
-        send(key, effectiveModifiers, activeAccent.key, physicalModifierHeld);
-      }
-      setActiveAccent({ source: key, key: accent, physical: false });
+      if (pendingDeadKey)
+        send(key, effectiveModifiers, pendingDeadKey.key, physicalModifierHeld);
+      setPendingDeadKey({ source: key, key: text, mark });
       return;
     }
 
-    const canCompose =
-      activeAccent &&
-      isCharKey(key) &&
-      shortcutModifiers.length === 0 &&
-      isAccentBase(activeAccent.key, text);
-    if (activeAccent && !activeAccent.physical && !canCompose) {
-      void send(activeAccent.key, [], activeAccent.key);
-    }
-    const composedText = canCompose
-      ? composeAccent(activeAccent.key, text)
-      : undefined;
-    setActiveAccent(null);
+    const composedText =
+      pendingDeadKey && isCharKey(key) && shortcutModifiers.length === 0
+        ? composeDeadKey(pendingDeadKey.key, pendingDeadKey.mark, text)
+        : undefined;
+    setPendingDeadKey(null);
     send(key, effectiveModifiers, composedText, physicalModifierHeld);
     setUnusedModifiers([]);
   };
@@ -343,9 +314,7 @@ export function useKeyboard() {
         return name.length > 8 ? `${name.slice(0, 7)}…` : name;
       }
       const label = getKeyLabel(key, shiftActive, capsActive, layout);
-      return activeAccent && isAccentBase(activeAccent.key, label)
-        ? composeAccent(activeAccent.key, label)
-        : label;
+      return label;
     },
     getMacroIcon: (key: string): MacroIconId | undefined => {
       const macroId = parseMacroKey(key);
@@ -360,17 +329,17 @@ export function useKeyboard() {
         ? capsActive
         : key === "Fn"
           ? fnActive
-          : activeAccent?.source === key
+          : pendingDeadKey?.source === key
             ? true
             : isModifier(key) && activeModifiers.includes(key),
     isAccentAvailable: (key: string) => {
-      if (!activeAccent || parseMacroKey(key) !== null) return true;
+      if (!pendingDeadKey || parseMacroKey(key) !== null) return true;
+      if (!isCharKey(key)) return true;
+
       const label = getKeyLabel(key, shiftActive, capsActive, layout);
-      return (
-        !isCharKey(key) ||
-        Boolean(accentFor(label)) ||
-        isAccentBase(activeAccent.key, label)
-      );
+      if (deadKeyMark(label, layout)) return true;
+      const pendingAccent = accentFor(pendingDeadKey.key);
+      return pendingAccent ? isAccentBase(pendingAccent, label) : true;
     },
     isPressed: (key: string) => pressedKeys.has(key),
     handleKey,
