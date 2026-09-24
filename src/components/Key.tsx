@@ -73,7 +73,7 @@ const getButtonStyles = (
   isAvailable: boolean,
 ): string => {
   const baseStyles =
-    "flex h-full min-w-0 items-center justify-center overflow-hidden rounded-xs border border-zinc-800 text-zinc-200 transition-colors hover:bg-zinc-700 hover:text-zinc-100";
+    "flex h-full min-w-0 items-center justify-center overflow-hidden rounded-xs border border-zinc-800 text-zinc-200 transition-[color,background-color,filter] hover:bg-zinc-700 hover:text-zinc-100";
   const stateStyles = isPressed || isActive ? "bg-zinc-700" : "bg-zinc-900";
   const availabilityStyles = isAvailable
     ? ""
@@ -99,12 +99,20 @@ export const Key = ({
   const MacroIcon = getMacroIcon(macroIcon);
   const icon = MacroIcon ? <MacroIcon size={ICON_SIZE} /> : getKeyIcon(label);
   const buttonStyles = getButtonStyles(isPressed, isActive, isAvailable);
+  const activeCustomColorStyles =
+    backgroundColor && isActive ? "brightness-125" : "";
+  const hoverFeedbackStyles =
+    isAvailable && (backgroundColor || isActive)
+      ? isActive && backgroundColor
+        ? "hover:brightness-150"
+        : "hover:brightness-125"
+      : "";
 
   return (
     <Button
       variant="outline"
       size="xs"
-      className={`${buttonStyles} px-1 ${className}`}
+      className={`${buttonStyles} ${activeCustomColorStyles} ${hoverFeedbackStyles} px-1 ${className}`}
       style={{
         gridColumn: `span ${span}`,
         justifySelf: "center",
