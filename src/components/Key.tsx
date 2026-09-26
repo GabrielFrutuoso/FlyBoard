@@ -11,16 +11,24 @@ import {
   ChevronsDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { type ReactNode } from "react";
+import { type MouseEvent, type ReactNode } from "react";
+import { getMacroIcon, type MacroIconId } from "../utils/macroIcons";
+import type { KeySize } from "../utils/boardConfig";
 
 interface KeyProps {
   label: string;
-  onClick: () => void;
+  onClick: (event: MouseEvent<HTMLButtonElement>) => void;
   span?: number;
   className?: string;
   isActive?: boolean;
   isPressed?: boolean;
   isAvailable?: boolean;
+  macroIcon?: MacroIconId;
+  macroName?: string;
+  size?: KeySize;
+  labelColor?: string;
+  borderColor?: string;
+  backgroundColor?: string;
 }
 
 const ICON_SIZE = "1.25em";
@@ -51,6 +59,10 @@ const KEY_ICON_MAP: Record<string, ReactNode> = {
   Right: <ArrowRight size={ICON_SIZE} />,
   PageUp: <ChevronsUp size={ICON_SIZE} />,
   PageDown: <ChevronsDown size={ICON_SIZE} />,
+  Insert: "Ins",
+  Delete: <Delete size={ICON_SIZE} />,
+  Home: "Home",
+  End: "End",
 };
 
 const getKeyIcon = (label: string): ReactNode => KEY_ICON_MAP[label] ?? null;
@@ -61,7 +73,7 @@ const getButtonStyles = (
   isAvailable: boolean,
 ): string => {
   const baseStyles =
-    "flex h-full min-w-0 items-center justify-center overflow-hidden rounded-xs border border-zinc-800 text-zinc-200 transition-colors hover:bg-zinc-700 hover:text-zinc-100";
+    "flex h-full min-w-0 items-center justify-center overflow-hidden rounded-xs border border-zinc-800 text-zinc-200 transition-[color,background-color,filter] hover:bg-zinc-700 hover:text-zinc-100";
   const stateStyles = isPressed || isActive ? "bg-zinc-700" : "bg-zinc-900";
   const availabilityStyles = isAvailable
     ? ""
@@ -77,22 +89,46 @@ export const Key = ({
   isActive = false,
   isPressed = false,
   isAvailable = true,
+  macroIcon,
+  macroName,
+  size = { width: 1, height: 1 },
+  labelColor,
+  borderColor,
+  backgroundColor,
 }: KeyProps) => {
-  const icon = getKeyIcon(label);
+  const MacroIcon = getMacroIcon(macroIcon);
+  const icon = MacroIcon ? <MacroIcon size={ICON_SIZE} /> : getKeyIcon(label);
   const buttonStyles = getButtonStyles(isPressed, isActive, isAvailable);
+  const activeCustomColorStyles =
+    backgroundColor && isActive ? "brightness-125" : "";
+  const hoverFeedbackStyles =
+    isAvailable && (backgroundColor || isActive)
+      ? isActive && backgroundColor
+        ? "hover:brightness-150"
+        : "hover:brightness-125"
+      : "";
 
   return (
     <Button
       variant="outline"
       size="xs"
-      className={`${buttonStyles} ${className}`}
-      style={{ gridColumn: `span ${span}` }}
+      className={`${buttonStyles} ${activeCustomColorStyles} ${hoverFeedbackStyles} px-1 ${className}`}
+      style={{
+        gridColumn: `span ${span}`,
+        justifySelf: "center",
+        width: "100%",
+        height: `${size.height * 100}%`,
+        ...(borderColor ? { borderColor } : {}),
+        ...(backgroundColor ? { backgroundColor } : {}),
+        ...(labelColor ? { color: labelColor } : {}),
+      }}
       onMouseDown={(event) => {
         event.preventDefault();
         audioPlayer.play();
       }}
       onClick={onClick}
-      title={label}
+      title={macroName ?? label}
+      aria-label={macroName ?? label}
     >
       {icon ? icon : label}
     </Button>

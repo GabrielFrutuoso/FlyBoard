@@ -179,6 +179,10 @@ pub fn send(key: KeyId, modifiers: &[Modifier]) -> Result<(), String> {
             NamedKey::Right => VK_RIGHT,
             NamedKey::PageUp => VK_PRIOR,
             NamedKey::PageDown => VK_NEXT,
+            NamedKey::Insert => VK_INSERT,
+            NamedKey::Delete => VK_DELETE,
+            NamedKey::Home => VK_HOME,
+            NamedKey::End => VK_END,
             // VK_F1 through VK_F12 are contiguous.
             NamedKey::Function(n) => VK_F1 + u16::from(n) - 1,
         }),

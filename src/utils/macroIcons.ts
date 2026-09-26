@@ -1,0 +1,75 @@
+import {
+  ArrowRight,
+  Check,
+  Clipboard,
+  Command,
+  Copy,
+  Download,
+  Edit,
+  FileText,
+  Folder,
+  Keyboard,
+  Lock,
+  MessageSquareText,
+  MousePointerClick,
+  Pause,
+  Play,
+  Plus,
+  Printer,
+  RefreshCw,
+  Save,
+  Scissors,
+  Search,
+  Send,
+  Settings,
+  Shield,
+  Square,
+  Star,
+  Terminal,
+  Trash2,
+  Upload,
+  Wand2,
+  type LucideIcon,
+} from "lucide-react";
+
+export const MACRO_ICON_OPTIONS = [
+  { id: "play", label: "Play", icon: Play },
+  { id: "pause", label: "Pause", icon: Pause },
+  { id: "stop", label: "Stop", icon: Square },
+  { id: "copy", label: "Copy", icon: Copy },
+  { id: "cut", label: "Cut", icon: Scissors },
+  { id: "paste", label: "Paste", icon: Clipboard },
+  { id: "send", label: "Send", icon: Send },
+  { id: "message", label: "Message", icon: MessageSquareText },
+  { id: "save", label: "Save", icon: Save },
+  { id: "refresh", label: "Refresh", icon: RefreshCw },
+  { id: "search", label: "Search", icon: Search },
+  { id: "settings", label: "Settings", icon: Settings },
+  { id: "printscreen", label: "Print Screen", icon: Printer },
+  { id: "keyboard", label: "Keyboard", icon: Keyboard },
+  { id: "mouse", label: "Mouse", icon: MousePointerClick },
+  { id: "command", label: "Command", icon: Command },
+  { id: "terminal", label: "Terminal", icon: Terminal },
+  { id: "edit", label: "Edit", icon: Edit },
+  { id: "file", label: "File", icon: FileText },
+  { id: "folder", label: "Folder", icon: Folder },
+  { id: "download", label: "Download", icon: Download },
+  { id: "upload", label: "Upload", icon: Upload },
+  { id: "check", label: "Check", icon: Check },
+  { id: "plus", label: "Add", icon: Plus },
+  { id: "lock", label: "Lock", icon: Lock },
+  { id: "shield", label: "Shield", icon: Shield },
+  { id: "trash", label: "Delete", icon: Trash2 },
+  { id: "star", label: "Favorite", icon: Star },
+  { id: "next", label: "Next", icon: ArrowRight },
+  { id: "magic", label: "Magic", icon: Wand2 },
+] as const satisfies readonly {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+}[];
+
+export type MacroIconId = (typeof MACRO_ICON_OPTIONS)[number]["id"];
+
+export const getMacroIcon = (id: string | undefined): LucideIcon | null =>
+  MACRO_ICON_OPTIONS.find((option) => option.id === id)?.icon ?? null;
