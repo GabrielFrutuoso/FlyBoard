@@ -115,6 +115,13 @@ function Keyboard() {
 }
 
 function App() {
+  useEffect(() => {
+    const preventContextMenu = (event: MouseEvent) => event.preventDefault();
+    document.addEventListener("contextmenu", preventContextMenu);
+
+    return () => document.removeEventListener("contextmenu", preventContextMenu);
+  }, []);
+
   return windowLabel === "editor" ? <LayoutEditor /> : <Keyboard />;
 }
 
