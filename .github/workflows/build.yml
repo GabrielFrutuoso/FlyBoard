@@ -39,13 +39,66 @@ jobs:
         with:
           node-version: 20
 
+      - name: Check for feature commit
+        id: feature
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        shell: bash
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if git log --format=%s "$BEFORE_SHA..$AFTER_SHA" | grep -Eq '^feat(\([^)]*\))?!?:[[:space:]]'; then
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No conventional feat commit found; skipping release."
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump application version
+        if: ${{ steps.feature.outputs.should_release == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm version minor --no-git-tag-version
+          VERSION="$(node -p "require('./package.json').version")"
+          node - "$VERSION" <<'NODE'
+          const fs = require('node:fs');
+          const version = process.argv[2];
+
+          const tauriPath = 'src-tauri/tauri.conf.json';
+          const tauri = JSON.parse(fs.readFileSync(tauriPath, 'utf8'));
+          tauri.version = version;
+          fs.writeFileSync(tauriPath, `${JSON.stringify(tauri, null, 2)}\n`);
+
+          for (const path of ['src-tauri/Cargo.toml', 'src-tauri/Cargo.lock']) {
+            const contents = fs.readFileSync(path, 'utf8');
+            const updated = path.endsWith('Cargo.toml')
+              ? contents.replace(/^(version = ")[^"]+("\n)/m, `$1${version}$2`)
+              : contents.replace(/(name = "FlyBoard"\nversion = ")[^"]+("\n)/, `$1${version}$2`);
+            fs.writeFileSync(path, updated);
+          }
+          NODE
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
+          git commit -m "chore(release): v$VERSION [skip ci]"
+          git push origin "HEAD:$GITHUB_REF_NAME"
+
       - name: Resolve release tag
         id: resolve
         shell: bash
         env:
           INPUT_TAG: ${{ inputs.tag }}
+          FEATURE_RELEASE: ${{ steps.feature.outputs.should_release }}
         run: |
           set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/main" && "$FEATURE_RELEASE" != "true" ]]; then
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           if [ -n "${INPUT_TAG:-}" ]; then
             TAG="$INPUT_TAG"
             EXISTING=true
@@ -53,7 +106,7 @@ jobs:
             TAG="${GITHUB_REF#refs/tags/}"
             EXISTING=true
           else
-            # Auto-release on main: the tag is derived from the app version.
+            # Auto-release on main: the version was bumped for a feat commit.
             TAG="v$(node -p "require('./src-tauri/tauri.conf.json').version")"
             EXISTING=false
           fi
