@@ -1,3 +1,7 @@
+<p align="center">
+	<img src="public/FlyBoardIcon.svg" alt="FlyBoard icon" width="186" />
+</p>
+
 # FlyBoard
 
 FlyBoard is a compact desktop virtual keyboard. On Linux it creates a native

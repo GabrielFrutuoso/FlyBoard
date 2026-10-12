@@ -48,6 +48,10 @@ export const NAMED_KEYS: readonly string[] = [
   "Right",
   "PageUp",
   "PageDown",
+  "Insert",
+  "Delete",
+  "Home",
+  "End",
   ...FUNCTION_KEYS,
 ];
 

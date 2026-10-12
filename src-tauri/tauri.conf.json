@@ -12,16 +12,27 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "FlyBoard",
         "width": 420,
         "height": 150,
-        "minWidth": 420,
-        "minHeight": 150,
-        "maxWidth": 630,
-        "maxHeight": 225,
+        "minWidth": 220,
+        "minHeight": 82,
         "resizable": true,
         "decorations": false,
         "alwaysOnTop": true
+      },
+      {
+        "label": "editor",
+        "title": "FlyBoard — Layout Editor",
+        "width": 920,
+        "height": 640,
+        "minWidth": 720,
+        "minHeight": 480,
+        "visible": false,
+        "resizable": true,
+        "decorations": false,
+        "alwaysOnTop": false
       }
     ],
     "security": {
