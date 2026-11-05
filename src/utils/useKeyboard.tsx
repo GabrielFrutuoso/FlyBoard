@@ -31,7 +31,7 @@ import type { MacroIconId } from "./macroIcons";
 
 const isLetter = (key: string) => /^[a-z]$/.test(key);
 // Use physical key events for these shifted symbols; Linux Unicode entry inherits held Shift.
-const PHYSICAL_SHIFT_SYMBOLS = new Set(["<", ">", ":", "?", "+", "_", "|", "{", "}"]);
+const PHYSICAL_SHIFT_SYMBOLS = new Set(["<", ">", ":", "?", "+", "_", "|", "{", "}", "!", "@", "#", "$", "%", "^", "&", "*", "(", ")",]);
 
 const getKeyLabel = (
   key: string,
