@@ -34,7 +34,7 @@ fn physical_key_id(key: KeyCode) -> Option<String> {
         KeyCode::KEY_LEFTCTRL | KeyCode::KEY_RIGHTCTRL => "Ctrl",
         KeyCode::KEY_CAPSLOCK => "Caps",
         KeyCode::KEY_LEFTSHIFT | KeyCode::KEY_RIGHTSHIFT => "Shift",
-        KeyCode::KEY_LEFTALT | KeyCode::KEY_RIGHTALT => "Alt",
+        KeyCode::KEY_LEFTALT => "Alt",
         KeyCode::KEY_SPACE => "Space",
         KeyCode::KEY_RIGHTALT => "AltGr",
         KeyCode::KEY_LEFTMETA | KeyCode::KEY_RIGHTMETA => "Win",
@@ -92,7 +92,7 @@ fn listen_to_keyboard(mut device: Device, app: AppHandle, device_path: String) {
                     }
                 }
                 EventSummary::Led(_, led, value) => {
-                    if let LedCode::LED_CAPSLOCK = led {
+                    if let LedCode::LED_CAPSL = led {
                         CAPS_LOCK.store(value != 0, Ordering::Relaxed);
                     }
                 }
@@ -173,7 +173,7 @@ fn char_to_keycode(character: char) -> Result<(KeyCode, bool), String> {
     let is_upper = character.is_ascii_uppercase();
     let base_char = character.to_ascii_lowercase();
     
-    match base_char {
+    Ok(match base_char {
         'a' => (KeyCode::KEY_A, is_upper),
         'b' => (KeyCode::KEY_B, is_upper),
         'c' => (KeyCode::KEY_C, is_upper),
@@ -224,8 +224,8 @@ fn char_to_keycode(character: char) -> Result<(KeyCode, bool), String> {
         'ç' | 'Ç' => (KeyCode::KEY_SEMICOLON, character == 'Ç'),
         '´' => (KeyCode::KEY_LEFTBRACE, false),
         ' ' => (KeyCode::KEY_SPACE, false),
-        _ => Err(format!("Unsupported character: {character:?}")),
-    }
+        _ => return Err(format!("Unsupported character: {character:?}")),
+    })
 }
 
 fn key_code(key: KeyId) -> Result<(KeyCode, bool), String> {
@@ -249,7 +249,7 @@ fn key_code(key: KeyId) -> Result<(KeyCode, bool), String> {
             NamedKey::Delete => (KeyCode::KEY_DELETE, false),
             NamedKey::Home => (KeyCode::KEY_HOME, false),
             NamedKey::End => (KeyCode::KEY_END, false),
-            NamedKey::Function(n) => (KeyCode::KEY_F1 + (n - 1) as KeyCode, false),
+            NamedKey::Function(n) => (KeyCode(KeyCode::KEY_F1.0 + u16::from(n - 1)), false),
         },
         KeyId::Modifier(modifier) => (modifier_key(modifier), false),
     };
