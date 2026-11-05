@@ -42,7 +42,9 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "resources": ["resources/60-flyboard-uinput.rules"],
+    "resources": [
+      "resources/60-flyboard-uinput.rules"
+    ],
     "linux": {
       "deb": {
         "files": {
