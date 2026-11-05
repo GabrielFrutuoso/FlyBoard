@@ -1,6 +1,6 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { ChevronDown, Minus, Pencil, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Minus, Pencil, X } from "lucide-react";
 import { Button } from "./ui/button";
 import {
   DropdownMenu,
@@ -80,6 +80,24 @@ const Header = ({ layouts, activeLayoutId, onSelectLayout }: HeaderProps) => {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
+        )}
+        {layouts && onSelectLayout && layouts.length > 1 && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-auto w-auto cursor-pointer rounded-sm p-0.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+            onClick={() => {
+              const activeIndex = layouts.findIndex(
+                (layout) => layout.id === activeLayoutId,
+              );
+              onSelectLayout(layouts[(activeIndex + 1) % layouts.length].id);
+            }}
+            title="Next keyboard layout"
+            aria-label="Next keyboard layout"
+          >
+            <ChevronRight size={12} />
+          </Button>
         )}
         {onSelectLayout && (
           <Button
