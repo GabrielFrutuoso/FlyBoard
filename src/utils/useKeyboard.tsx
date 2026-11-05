@@ -30,6 +30,8 @@ import {
 import type { MacroIconId } from "./macroIcons";
 
 const isLetter = (key: string) => /^[a-z]$/.test(key);
+// Use physical key events for these shifted symbols; Linux Unicode entry inherits held Shift.
+const PHYSICAL_SHIFT_SYMBOLS = new Set(["<", ">", ":", "?", "+", "_", "|", "{", "}"]);
 
 const getKeyLabel = (
   key: string,
@@ -200,20 +202,29 @@ export function useKeyboard() {
     const hasShortcutModifier = modifiers.some(
       (modifier) => modifier !== "Shift",
     );
+    const outputText =
+      text ??
+      getKeyLabel(key, modifiers.includes("Shift"), capsActive, layout);
+    const canUsePhysicalShift =
+      physicalModifierHeld &&
+      modifiers.includes("Shift") &&
+      PHYSICAL_SHIFT_SYMBOLS.has(outputText);
     const useCustomText =
-      !activeLayout.builtin && isCharKey(key) && !hasShortcutModifier;
+      !activeLayout.builtin &&
+      isCharKey(key) &&
+      !hasShortcutModifier &&
+      !canUsePhysicalShift;
     const request =
       isCharKey(key) &&
       !hasShortcutModifier &&
       (!physicalModifierHeld || useCustomText)
         ? invoke<void>("send_text", {
-            text:
-              text ??
-              getKeyLabel(key, modifiers.includes("Shift"), capsActive, layout),
+            text: outputText,
           })
         : invoke<void>("send_key", {
-            key:
-              !activeLayout.builtin && isCharKey(key)
+            key: canUsePhysicalShift
+              ? toPhysicalKeyId(key, layout)
+              : !activeLayout.builtin && isCharKey(key)
                 ? toKeyId(key)
                 : toPhysicalKeyId(key, layout),
             modifiers,
