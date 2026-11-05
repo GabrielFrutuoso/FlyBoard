@@ -91,8 +91,10 @@ fn listen_to_keyboard(mut device: Device, app: AppHandle, device_path: String) {
                         }
                     }
                 }
-                EventSummary::Led(_, LedCode::LED_CAPSL, value) => {
-                    CAPS_LOCK.store(value != 0, Ordering::Relaxed);
+                EventSummary::Led(_, led, value) => {
+                    if let LedCode::LED_CAPSL = led {
+                        CAPS_LOCK.store(value != 0, Ordering::Relaxed);
+                    }
                 }
                 _ => {}
             }
@@ -155,6 +157,7 @@ pub fn status() -> InputStatus {
     }
 }
 
+/// Maps a modifier to its corresponding KeyCode.
 fn modifier_key(modifier: Modifier) -> KeyCode {
     match modifier {
         Modifier::Shift => KeyCode::KEY_LEFTSHIFT,
@@ -165,66 +168,70 @@ fn modifier_key(modifier: Modifier) -> KeyCode {
     }
 }
 
+/// Maps a character to its evdev KeyCode, handling shift state correctly.
+fn char_to_keycode(character: char) -> Result<(KeyCode, bool), String> {
+    let is_upper = character.is_ascii_uppercase();
+    let base_char = character.to_ascii_lowercase();
+    
+    Ok(match base_char {
+        'a' => (KeyCode::KEY_A, is_upper),
+        'b' => (KeyCode::KEY_B, is_upper),
+        'c' => (KeyCode::KEY_C, is_upper),
+        'd' => (KeyCode::KEY_D, is_upper),
+        'e' => (KeyCode::KEY_E, is_upper),
+        'f' => (KeyCode::KEY_F, is_upper),
+        'g' => (KeyCode::KEY_G, is_upper),
+        'h' => (KeyCode::KEY_H, is_upper),
+        'i' => (KeyCode::KEY_I, is_upper),
+        'j' => (KeyCode::KEY_J, is_upper),
+        'k' => (KeyCode::KEY_K, is_upper),
+        'l' => (KeyCode::KEY_L, is_upper),
+        'm' => (KeyCode::KEY_M, is_upper),
+        'n' => (KeyCode::KEY_N, is_upper),
+        'o' => (KeyCode::KEY_O, is_upper),
+        'p' => (KeyCode::KEY_P, is_upper),
+        'q' => (KeyCode::KEY_Q, is_upper),
+        'r' => (KeyCode::KEY_R, is_upper),
+        's' => (KeyCode::KEY_S, is_upper),
+        't' => (KeyCode::KEY_T, is_upper),
+        'u' => (KeyCode::KEY_U, is_upper),
+        'v' => (KeyCode::KEY_V, is_upper),
+        'w' => (KeyCode::KEY_W, is_upper),
+        'x' => (KeyCode::KEY_X, is_upper),
+        'y' => (KeyCode::KEY_Y, is_upper),
+        'z' => (KeyCode::KEY_Z, is_upper),
+        '1' => (KeyCode::KEY_1, character == '!'),
+        '2' => (KeyCode::KEY_2, character == '@'),
+        '3' => (KeyCode::KEY_3, character == '#'),
+        '4' => (KeyCode::KEY_4, character == '$'),
+        '5' => (KeyCode::KEY_5, character == '%'),
+        '6' => (KeyCode::KEY_6, false),
+        '7' => (KeyCode::KEY_7, character == '&'),
+        '8' => (KeyCode::KEY_8, character == '*'),
+        '9' => (KeyCode::KEY_9, character == '('),
+        '0' => (KeyCode::KEY_0, character == ')'),
+        '-' => (KeyCode::KEY_MINUS, character == '_'),
+        '=' => (KeyCode::KEY_EQUAL, character == '+'),
+        '`' => (KeyCode::KEY_GRAVE, character == '`'),
+        '[' => (KeyCode::KEY_LEFTBRACE, character == '{'),
+        ']' => (KeyCode::KEY_RIGHTBRACE, character == '}'),
+        '\\' => (KeyCode::KEY_BACKSLASH, character == '|'),
+        ';' => (KeyCode::KEY_SEMICOLON, character == ':'),
+        '\'' => (KeyCode::KEY_APOSTROPHE, character == '"'),
+        ',' => (KeyCode::KEY_COMMA, character == '<'),
+        '.' => (KeyCode::KEY_DOT, character == '>'),
+        '/' => (KeyCode::KEY_SLASH, character == '?'),
+        'ç' | 'Ç' => (KeyCode::KEY_SEMICOLON, character == 'Ç'),
+        '´' => (KeyCode::KEY_LEFTBRACE, false),
+        ' ' => (KeyCode::KEY_SPACE, false),
+        _ => return Err(format!("Unsupported character: {character:?}")),
+    })
+}
+
 fn key_code(key: KeyId) -> Result<(KeyCode, bool), String> {
-    let key = match key {
+    let (keycode, needs_shift) = match key {
         KeyId::Physical(code) => (KeyCode::new(code), false),
-        KeyId::Char(character) => match character {
-            'a' | 'A' => (KeyCode::KEY_A, character.is_ascii_uppercase()),
-            'b' | 'B' => (KeyCode::KEY_B, character.is_ascii_uppercase()),
-            'c' | 'C' => (KeyCode::KEY_C, character.is_ascii_uppercase()),
-            'd' | 'D' => (KeyCode::KEY_D, character.is_ascii_uppercase()),
-            'e' | 'E' => (KeyCode::KEY_E, character.is_ascii_uppercase()),
-            'f' | 'F' => (KeyCode::KEY_F, character.is_ascii_uppercase()),
-            'g' | 'G' => (KeyCode::KEY_G, character.is_ascii_uppercase()),
-            'h' | 'H' => (KeyCode::KEY_H, character.is_ascii_uppercase()),
-            'i' | 'I' => (KeyCode::KEY_I, character.is_ascii_uppercase()),
-            'j' | 'J' => (KeyCode::KEY_J, character.is_ascii_uppercase()),
-            'k' | 'K' => (KeyCode::KEY_K, character.is_ascii_uppercase()),
-            'l' | 'L' => (KeyCode::KEY_L, character.is_ascii_uppercase()),
-            'm' | 'M' => (KeyCode::KEY_M, character.is_ascii_uppercase()),
-            'n' | 'N' => (KeyCode::KEY_N, character.is_ascii_uppercase()),
-            'o' | 'O' => (KeyCode::KEY_O, character.is_ascii_uppercase()),
-            'p' | 'P' => (KeyCode::KEY_P, character.is_ascii_uppercase()),
-            'q' | 'Q' => (KeyCode::KEY_Q, character.is_ascii_uppercase()),
-            'r' | 'R' => (KeyCode::KEY_R, character.is_ascii_uppercase()),
-            's' | 'S' => (KeyCode::KEY_S, character.is_ascii_uppercase()),
-            't' | 'T' => (KeyCode::KEY_T, character.is_ascii_uppercase()),
-            'u' | 'U' => (KeyCode::KEY_U, character.is_ascii_uppercase()),
-            'v' | 'V' => (KeyCode::KEY_V, character.is_ascii_uppercase()),
-            'w' | 'W' => (KeyCode::KEY_W, character.is_ascii_uppercase()),
-            'x' | 'X' => (KeyCode::KEY_X, character.is_ascii_uppercase()),
-            'y' | 'Y' => (KeyCode::KEY_Y, character.is_ascii_uppercase()),
-            'z' | 'Z' => (KeyCode::KEY_Z, character.is_ascii_uppercase()),
-            '1' | '!' => (KeyCode::KEY_1, character == '!'),
-            '2' | '@' => (KeyCode::KEY_2, character == '@'),
-            '3' | '#' => (KeyCode::KEY_3, character == '#'),
-            '4' | '$' => (KeyCode::KEY_4, character == '$'),
-            '5' | '%' => (KeyCode::KEY_5, character == '%'),
-            '6' => (KeyCode::KEY_6, false),
-            '7' | '&' => (KeyCode::KEY_7, character == '&'),
-            '8' | '*' => (KeyCode::KEY_8, character == '*'),
-            '9' | '(' => (KeyCode::KEY_9, character == '('),
-            '0' | ')' => (KeyCode::KEY_0, character == ')'),
-            '-' | '_' => (KeyCode::KEY_MINUS, character == '_'),
-            '=' | '+' => (KeyCode::KEY_EQUAL, character == '+'),
-            '`' | '~' | '^' => (KeyCode::KEY_GRAVE, character != '`'),
-            '[' | '{' => (KeyCode::KEY_LEFTBRACE, character == '{'),
-            ']' | '}' => (KeyCode::KEY_RIGHTBRACE, character == '}'),
-            '\\' | '|' => (KeyCode::KEY_BACKSLASH, character == '|'),
-            ';' | ':' => (KeyCode::KEY_SEMICOLON, character == ':'),
-            '\'' | '"' => (KeyCode::KEY_APOSTROPHE, character == '"'),
-            ',' | '<' => (KeyCode::KEY_COMMA, character == '<'),
-            '.' | '>' => (KeyCode::KEY_DOT, character == '>'),
-            '/' | '?' => (KeyCode::KEY_SLASH, character == '?'),
-            'ç' | 'Ç' => (KeyCode::KEY_SEMICOLON, character == 'Ç'),
-            '´' => (KeyCode::KEY_LEFTBRACE, false),
-            ' ' => (KeyCode::KEY_SPACE, false),
-            _ => {
-                return Err(format!(
-                    "The Linux virtual keyboard cannot type {character:?}."
-                ))
-            }
-        },
+        KeyId::Char(character) => char_to_keycode(character)?,
         KeyId::Named(named) => match named {
             NamedKey::Enter => (KeyCode::KEY_ENTER, false),
             NamedKey::Backspace => (KeyCode::KEY_BACKSPACE, false),
@@ -242,25 +249,11 @@ fn key_code(key: KeyId) -> Result<(KeyCode, bool), String> {
             NamedKey::Delete => (KeyCode::KEY_DELETE, false),
             NamedKey::Home => (KeyCode::KEY_HOME, false),
             NamedKey::End => (KeyCode::KEY_END, false),
-            NamedKey::Function(number) => match number {
-                1 => (KeyCode::KEY_F1, false),
-                2 => (KeyCode::KEY_F2, false),
-                3 => (KeyCode::KEY_F3, false),
-                4 => (KeyCode::KEY_F4, false),
-                5 => (KeyCode::KEY_F5, false),
-                6 => (KeyCode::KEY_F6, false),
-                7 => (KeyCode::KEY_F7, false),
-                8 => (KeyCode::KEY_F8, false),
-                9 => (KeyCode::KEY_F9, false),
-                10 => (KeyCode::KEY_F10, false),
-                11 => (KeyCode::KEY_F11, false),
-                12 => (KeyCode::KEY_F12, false),
-                _ => return Err(format!("Invalid function key F{number}")),
-            },
+            NamedKey::Function(n) => (KeyCode(KeyCode::KEY_F1.0 + u16::from(n - 1)), false),
         },
         KeyId::Modifier(modifier) => (modifier_key(modifier), false),
     };
-    Ok(key)
+    Ok((keycode, needs_shift))
 }
 
 fn virtual_keyboard() -> Result<&'static Mutex<VirtualDevice>, String> {
@@ -332,19 +325,25 @@ fn send_unicode_text(text: &str) -> Result<(), String> {
     })?;
 
     for character in text.chars() {
+        // Press modifiers in order: Ctrl, Shift, U
         press(&mut keyboard, KeyCode::KEY_LEFTCTRL)?;
         press(&mut keyboard, KeyCode::KEY_LEFTSHIFT)?;
         press(&mut keyboard, KeyCode::KEY_U)?;
+        
+        // Release modifiers in reverse order: U, Shift, Ctrl
         release(&mut keyboard, KeyCode::KEY_U)?;
         release(&mut keyboard, KeyCode::KEY_LEFTSHIFT)?;
         release(&mut keyboard, KeyCode::KEY_LEFTCTRL)?;
-
-        for digit in format!("{:x}", character as u32).chars() {
+        
+        // Send the Unicode character
+        let hex_digit = format!("{:x}", character as u32);
+        for digit in hex_digit.chars() {
             let key = unicode_digit_key(digit);
             press(&mut keyboard, key)?;
             release(&mut keyboard, key)?;
         }
 
+        // Press Enter to complete the Unicode input
         press(&mut keyboard, KeyCode::KEY_ENTER)?;
         release(&mut keyboard, KeyCode::KEY_ENTER)?;
     }
@@ -352,9 +351,13 @@ fn send_unicode_text(text: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Sends a key with modifiers, properly handling timing to avoid key conflicts.
+/// Uses short, precise delays to ensure keys are released before the next key press.
 fn send_resolved(key: (KeyCode, bool), modifiers: &[Modifier]) -> Result<(), String> {
     let (target, needs_shift) = key;
     let mut active_modifiers = modifiers.to_vec();
+    
+    // Add Shift if needed
     if needs_shift && !active_modifiers.contains(&Modifier::Shift) {
         active_modifiers.push(Modifier::Shift);
     }
@@ -365,21 +368,18 @@ fn send_resolved(key: (KeyCode, bool), modifiers: &[Modifier]) -> Result<(), Str
             .map_err(|_| "FlyBoard's virtual keyboard lock is unavailable.".into())
     })?;
 
+    // Press all modifiers first (Ctrl, Alt, Shift, etc.)
     for modifier in &active_modifiers {
         press(&mut keyboard, modifier_key(*modifier))?;
     }
-    if !active_modifiers.is_empty() {
-        thread::sleep(std::time::Duration::from_millis(5));
-    }
 
+    // Press the target key
     press(&mut keyboard, target)?;
-    thread::sleep(std::time::Duration::from_millis(12));
+
+    // Release the target key immediately
     release(&mut keyboard, target)?;
 
-    if !active_modifiers.is_empty() {
-        thread::sleep(std::time::Duration::from_millis(5));
-    }
-
+    // Release modifiers in reverse order
     for modifier in active_modifiers.iter().rev() {
         release(&mut keyboard, modifier_key(*modifier))?;
     }
