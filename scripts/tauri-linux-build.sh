@@ -13,6 +13,14 @@ if ((${#appimages[@]})) && fuser -s -- "${appimages[@]}"; then
   exit 1
 fi
 
+# Use GNU ld on Linux; rust-lld fails to link tauri_utils' drop glue on this toolchain.
+if [[ -n "${CARGO_ENCODED_RUSTFLAGS:-}" ]]; then
+  export CARGO_ENCODED_RUSTFLAGS="${CARGO_ENCODED_RUSTFLAGS}"$'\x1f-C\x1flink-arg=-fuse-ld=bfd'
+else
+  unset CARGO_ENCODED_RUSTFLAGS
+  export RUSTFLAGS="${RUSTFLAGS:+$RUSTFLAGS }-C link-arg=-fuse-ld=bfd"
+fi
+
 exec env \
   -u LD_LIBRARY_PATH \
   -u GTK_PATH \
