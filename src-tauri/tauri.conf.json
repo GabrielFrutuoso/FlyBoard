@@ -20,7 +20,8 @@
         "minHeight": 82,
         "resizable": true,
         "decorations": false,
-        "alwaysOnTop": true
+        "alwaysOnTop": true,
+        "transparent": true
       },
       {
         "label": "editor",
@@ -32,7 +33,8 @@
         "visible": false,
         "resizable": true,
         "decorations": false,
-        "alwaysOnTop": false
+        "alwaysOnTop": false,
+        "transparent": true
       }
     ],
     "security": {

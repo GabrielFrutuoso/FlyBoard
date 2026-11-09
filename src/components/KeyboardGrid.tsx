@@ -12,9 +12,12 @@ interface KeyboardRowProps {
     keyIndex: number,
     span: number,
     size: KeySize,
+    keyGap: number,
   ) => ReactNode;
   className?: string;
+  keyGap?: number;
   totalColumns?: number;
+  preserveProportions?: boolean;
   rowProps?: HTMLAttributes<HTMLDivElement> & { ref?: Ref<HTMLDivElement> };
 }
 
@@ -45,17 +48,29 @@ export const KeyboardRow = ({
   keySizeFor,
   renderKey,
   className = "grid w-full min-h-0 flex-1 gap-0.5",
+  keyGap = 2,
   totalColumns,
+  preserveProportions = false,
   rowProps,
 }: KeyboardRowProps) => {
   const metrics = rowMetrics(row, rowIndex, unitFor, keySizeFor);
+  const gridColumns = preserveProportions
+    ? metrics.totalColumns
+    : (totalColumns ?? metrics.totalColumns);
 
   return (
     <div
       {...rowProps}
       className={className}
       style={{
-        gridTemplateColumns: `repeat(${totalColumns ?? metrics.totalColumns}, minmax(0, 1fr))`,
+        width:
+          preserveProportions && totalColumns
+            ? `${(metrics.totalColumns / totalColumns) * 100}%`
+            : "100%",
+        marginInline: preserveProportions ? "auto" : undefined,
+        gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))`,
+        columnGap: 0,
+        rowGap: 0,
       }}
     >
       {row.map((key, keyIndex) =>
@@ -65,16 +80,20 @@ export const KeyboardRow = ({
           keyIndex,
           metrics.spans[keyIndex],
           metrics.sizes[keyIndex],
+          keyGap,
         ),
       )}
     </div>
   );
 };
 
-interface KeyboardGridProps extends Omit<KeyboardRowProps, "row" | "rowIndex"> {
+interface KeyboardGridProps extends Omit<
+  KeyboardRowProps,
+  "row" | "rowIndex" | "totalColumns" | "preserveProportions"
+> {
   rows: string[][];
   className?: string;
-  alignRows?: boolean;
+  preserveProportions?: boolean;
   getRowProps?: (
     rowIndex: number,
     row: string[],
@@ -93,10 +112,11 @@ export const KeyboardGrid = ({
   renderKey,
   renderRow,
   getRowProps,
-  alignRows = false,
+  keyGap = 2,
+  preserveProportions = false,
   className = "flex min-h-0 w-full flex-1 flex-col gap-1",
 }: KeyboardGridProps) => {
-  const totalColumns = alignRows
+  const totalColumns = preserveProportions
     ? Math.max(
         ...rows.map(
           (row, rowIndex) =>
@@ -107,7 +127,7 @@ export const KeyboardGrid = ({
     : undefined;
 
   return (
-    <div className={className}>
+    <div className={className} style={{ gap: `${keyGap}px` }}>
       {rows.map((row, rowIndex) => {
         const content = (
           <KeyboardRow
@@ -117,7 +137,9 @@ export const KeyboardGrid = ({
             unitFor={unitFor}
             keySizeFor={keySizeFor}
             renderKey={renderKey}
+            keyGap={keyGap}
             totalColumns={totalColumns}
+            preserveProportions={preserveProportions}
             rowProps={getRowProps?.(rowIndex, row)}
           />
         );

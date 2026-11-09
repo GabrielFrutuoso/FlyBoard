@@ -8,6 +8,15 @@ FlyBoard is a compact desktop virtual keyboard. On Linux it creates a native
 kernel `uinput` keyboard, so the currently focused application receives normal
 keyboard events.
 
+## Layout surface appearance
+
+Open **Edit layouts & macros**, then choose a custom layout or duplicate a
+built-in one. Its **Surface** setting offers **Solid** (the default) and
+**Transparent**. The background color picker customizes the surface. Set
+transparency from 1–100%. Select a key to customize its surface and transparency
+independently; keys can also inherit the layout surface. These settings are
+saved with the layout. Transparent native windows are enabled for the app.
+
 ## Ubuntu installation
 
 > **📦 Important**: Use the `.deb` package (not `.AppImage`) for seamless Linux installation.
