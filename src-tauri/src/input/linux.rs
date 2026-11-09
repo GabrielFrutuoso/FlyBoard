@@ -295,6 +295,14 @@ fn release(keyboard: &mut VirtualDevice, key: KeyCode) -> Result<(), String> {
         .map_err(|error| format!("Could not send key release event through virtual keyboard: {error}"))
 }
 
+fn emit_key_event(keyboard: &mut VirtualDevice, key: KeyCode, down: bool) -> Result<(), String> {
+    if down {
+        press(keyboard, key)
+    } else {
+        release(keyboard, key)
+    }
+}
+
 fn unicode_digit_key(character: char) -> KeyCode {
     match character {
         '0' => KeyCode::KEY_0,
@@ -325,34 +333,39 @@ fn send_unicode_text(text: &str) -> Result<(), String> {
     })?;
 
     for character in text.chars() {
+        let mut events = Vec::new();
+
         // Press modifiers in order: Ctrl, Shift, U
-        press(&mut keyboard, KeyCode::KEY_LEFTCTRL)?;
-        press(&mut keyboard, KeyCode::KEY_LEFTSHIFT)?;
-        press(&mut keyboard, KeyCode::KEY_U)?;
-        
+        events.push((KeyCode::KEY_LEFTCTRL, true));
+        events.push((KeyCode::KEY_LEFTSHIFT, true));
+        events.push((KeyCode::KEY_U, true));
+
         // Release modifiers in reverse order: U, Shift, Ctrl
-        release(&mut keyboard, KeyCode::KEY_U)?;
-        release(&mut keyboard, KeyCode::KEY_LEFTSHIFT)?;
-        release(&mut keyboard, KeyCode::KEY_LEFTCTRL)?;
-        
+        events.push((KeyCode::KEY_U, false));
+        events.push((KeyCode::KEY_LEFTSHIFT, false));
+        events.push((KeyCode::KEY_LEFTCTRL, false));
+
         // Send the Unicode character
         let hex_digit = format!("{:x}", character as u32);
         for digit in hex_digit.chars() {
             let key = unicode_digit_key(digit);
-            press(&mut keyboard, key)?;
-            release(&mut keyboard, key)?;
+            events.push((key, true));
+            events.push((key, false));
         }
 
         // Press Enter to complete the Unicode input
-        press(&mut keyboard, KeyCode::KEY_ENTER)?;
-        release(&mut keyboard, KeyCode::KEY_ENTER)?;
+        events.push((KeyCode::KEY_ENTER, true));
+        events.push((KeyCode::KEY_ENTER, false));
+
+        super::key_sequence::run(events, |key, down| {
+            emit_key_event(&mut keyboard, key, down)
+        })?;
     }
 
     Ok(())
 }
 
-/// Sends a key with modifiers, properly handling timing to avoid key conflicts.
-/// Uses short, precise delays to ensure keys are released before the next key press.
+/// Sends a key with modifiers and attempts to release held keys if an event fails.
 fn send_resolved(key: (KeyCode, bool), modifiers: &[Modifier]) -> Result<(), String> {
     let (target, needs_shift) = key;
     let mut active_modifiers = modifiers.to_vec();
@@ -368,23 +381,22 @@ fn send_resolved(key: (KeyCode, bool), modifiers: &[Modifier]) -> Result<(), Str
             .map_err(|_| "FlyBoard's virtual keyboard lock is unavailable.".into())
     })?;
 
-    // Press all modifiers first (Ctrl, Alt, Shift, etc.)
+    let mut events = Vec::new();
     for modifier in &active_modifiers {
-        press(&mut keyboard, modifier_key(*modifier))?;
+        events.push((modifier_key(*modifier), true));
     }
 
-    // Press the target key
-    press(&mut keyboard, target)?;
-
-    // Release the target key immediately
-    release(&mut keyboard, target)?;
+    events.push((target, true));
+    events.push((target, false));
 
     // Release modifiers in reverse order
     for modifier in active_modifiers.iter().rev() {
-        release(&mut keyboard, modifier_key(*modifier))?;
+        events.push((modifier_key(*modifier), false));
     }
 
-    Ok(())
+    super::key_sequence::run(events, |key, down| {
+        emit_key_event(&mut keyboard, key, down)
+    })
 }
 
 pub fn send_text(text: &str) -> Result<(), String> {
@@ -396,90 +408,5 @@ pub fn send(key: KeyId, modifiers: &[Modifier]) -> Result<(), String> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{key_code, physical_key_id, physical_key_source};
-    use crate::input::{KeyId, NamedKey};
-    use evdev::KeyCode;
-
-    #[test]
-    fn resolves_accent_positions_without_colliding() {
-        assert_eq!(
-            key_code(KeyId::Physical(26)).unwrap().0,
-            evdev::KeyCode::KEY_LEFTBRACE
-        );
-        assert_eq!(
-            key_code(KeyId::Physical(40)).unwrap().0,
-            evdev::KeyCode::KEY_APOSTROPHE
-        );
-        assert_eq!(
-            key_code(KeyId::Physical(41)).unwrap().0,
-            evdev::KeyCode::KEY_GRAVE
-        );
-    }
-
-    #[test]
-    fn resolves_character_mappings_matching_ui_layout() {
-        assert_eq!(key_code(KeyId::Char('\'')).unwrap().0, KeyCode::KEY_APOSTROPHE);
-        assert_eq!(key_code(KeyId::Char('`')).unwrap().0, KeyCode::KEY_GRAVE);
-        assert_eq!(key_code(KeyId::Char('[')).unwrap().0, KeyCode::KEY_LEFTBRACE);
-        assert_eq!(key_code(KeyId::Char(']')).unwrap().0, KeyCode::KEY_RIGHTBRACE);
-        assert_eq!(key_code(KeyId::Char('\\')).unwrap().0, KeyCode::KEY_BACKSLASH);
-        assert_eq!(key_code(KeyId::Char(';')).unwrap().0, KeyCode::KEY_SEMICOLON);
-        assert_eq!(key_code(KeyId::Char('/')).unwrap().0, KeyCode::KEY_SLASH);
-        assert_eq!(key_code(KeyId::Char('ç')).unwrap().0, KeyCode::KEY_SEMICOLON);
-    }
-
-    #[test]
-    fn resolves_function_keys_correctly() {
-        assert_eq!(key_code(KeyId::Named(NamedKey::Function(1))).unwrap().0, KeyCode::KEY_F1);
-        assert_eq!(key_code(KeyId::Named(NamedKey::Function(10))).unwrap().0, KeyCode::KEY_F10);
-        assert_eq!(key_code(KeyId::Named(NamedKey::Function(11))).unwrap().0, KeyCode::KEY_F11);
-        assert_eq!(key_code(KeyId::Named(NamedKey::Function(12))).unwrap().0, KeyCode::KEY_F12);
-    }
-
-    #[test]
-    fn physical_key_id_preserves_printable_key_positions() {
-        assert_eq!(physical_key_id(KeyCode::KEY_GRAVE), Some("physical:41".into()));
-        assert_eq!(physical_key_id(KeyCode::KEY_LEFTBRACE), Some("physical:26".into()));
-        assert_eq!(physical_key_id(KeyCode::KEY_RIGHTBRACE), Some("physical:27".into()));
-        assert_eq!(physical_key_id(KeyCode::KEY_BACKSLASH), Some("physical:43".into()));
-        assert_eq!(physical_key_id(KeyCode::KEY_SEMICOLON), Some("physical:39".into()));
-        assert_eq!(physical_key_id(KeyCode::KEY_APOSTROPHE), Some("physical:40".into()));
-        assert_eq!(physical_key_id(KeyCode::KEY_102ND), Some("physical:86".into()));
-        assert_eq!(physical_key_id(KeyCode::KEY_SLASH), Some("physical:53".into()));
-        assert_eq!(physical_key_id(KeyCode::KEY_RO), Some("physical:89".into()));
-        assert_eq!(physical_key_id(KeyCode::KEY_F11), Some("F11".into()));
-        assert_eq!(physical_key_id(KeyCode::KEY_F12), Some("F12".into()));
-    }
-
-    #[test]
-    fn left_and_right_modifiers_have_distinct_physical_sources() {
-        assert_ne!(KeyCode::KEY_LEFTSHIFT.code(), KeyCode::KEY_RIGHTSHIFT.code());
-        assert_ne!(KeyCode::KEY_LEFTCTRL.code(), KeyCode::KEY_RIGHTCTRL.code());
-        assert_ne!(KeyCode::KEY_LEFTALT.code(), KeyCode::KEY_RIGHTALT.code());
-    }
-
-    #[test]
-    fn same_modifier_on_different_keyboards_has_distinct_source() {
-        assert_ne!(
-            physical_key_source("/dev/input/event3", KeyCode::KEY_LEFTSHIFT),
-            physical_key_source("/dev/input/event7", KeyCode::KEY_LEFTSHIFT)
-        );
-    }
-
-    #[test]
-    fn resolves_brazilian_slash_position() {
-        assert_eq!(
-            key_code(KeyId::Physical(89)).unwrap().0,
-            evdev::KeyCode::new(89)
-        );
-    }
-
-    #[test]
-    fn resolves_brazilian_backslash_position() {
-        assert_eq!(
-            key_code(KeyId::Physical(86)).unwrap().0,
-            evdev::KeyCode::KEY_102ND
-        );
-    }
-}
+#[path = "tests/linux.rs"]
+mod tests;
