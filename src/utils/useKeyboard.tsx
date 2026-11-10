@@ -19,6 +19,7 @@ import {
   allLayouts,
   BUILTIN_LAYOUTS,
   DEFAULT_KEY_SIZE,
+  normalizeKeyGap,
   loadBoards,
   parseMacroKey,
   runMacroSteps,
@@ -31,7 +32,27 @@ import type { MacroIconId } from "./macroIcons";
 
 const isLetter = (key: string) => /^[a-z]$/.test(key);
 // Use physical key events for these shifted symbols; Linux Unicode entry inherits held Shift.
-const PHYSICAL_SHIFT_SYMBOLS = new Set(["<", ">", ":", "?", "+", "_", "|", "{", "}", "!", "@", "#", "$", "%", "^", "&", "*", "(", ")",]);
+const PHYSICAL_SHIFT_SYMBOLS = new Set([
+  "<",
+  ">",
+  ":",
+  "?",
+  "+",
+  "_",
+  "|",
+  "{",
+  "}",
+  "!",
+  "@",
+  "#",
+  "$",
+  "%",
+  "^",
+  "&",
+  "*",
+  "(",
+  ")",
+]);
 
 const getKeyLabel = (
   key: string,
@@ -203,8 +224,7 @@ export function useKeyboard() {
       (modifier) => modifier !== "Shift",
     );
     const outputText =
-      text ??
-      getKeyLabel(key, modifiers.includes("Shift"), capsActive, layout);
+      text ?? getKeyLabel(key, modifiers.includes("Shift"), capsActive, layout);
     const canUsePhysicalShift =
       physicalModifierHeld &&
       modifiers.includes("Shift") &&
@@ -311,7 +331,12 @@ export function useKeyboard() {
     layouts: layouts.map(({ id, name }) => ({ id, name })),
     setLayout: setActiveLayout,
     rows: activeLayout.rows,
+    appearance: activeLayout.appearance ?? "solid",
     backgroundColor: activeLayout.backgroundColor,
+    transparency: activeLayout.transparency,
+    keyGap: normalizeKeyGap(activeLayout.keyGap),
+    keyRadius: activeLayout.keyRadius,
+    keyLabelSize: activeLayout.keyLabelSize,
     keySizeFor: (rowIndex: number, keyIndex: number) =>
       activeLayout.keySizes?.[rowIndex]?.[keyIndex] ?? DEFAULT_KEY_SIZE,
     styleFor: (rowIndex: number, keyIndex: number): KeyStyle =>

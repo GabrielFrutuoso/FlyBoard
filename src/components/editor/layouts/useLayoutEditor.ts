@@ -4,7 +4,9 @@ import {
   BUILTIN_LAYOUTS,
   DEFAULT_KEY_SIZE,
   newId,
+  normalizeKeyGap,
   parseMacroKey,
+  type LayoutAppearance,
   type BoardLayout,
   type BoardsFile,
   type KeySize,
@@ -62,11 +64,8 @@ export function useLayoutEditor(
     });
   };
 
-  const updateKeySize = (
-    rowIndex: number,
-    keyIndex: number,
-    fn: (size: KeySize) => KeySize,
-  ) => {
+  const updateSelectedKeySizes = (update: (size: KeySize) => KeySize) => {
+    if (selectedKeys.length === 0) return;
     updateCustom((layout) => {
       const keySizes = layout.rows.map((row, currentRow) =>
         row.map(
@@ -74,9 +73,11 @@ export function useLayoutEditor(
             layout.keySizes?.[currentRow]?.[currentKey] ?? null,
         ),
       );
-      keySizes[rowIndex][keyIndex] = fn(
-        keySizes[rowIndex][keyIndex] ?? DEFAULT_KEY_SIZE,
-      );
+      selectedKeys.forEach(({ rowIndex, keyIndex }) => {
+        keySizes[rowIndex][keyIndex] = update(
+          keySizes[rowIndex][keyIndex] ?? DEFAULT_KEY_SIZE,
+        );
+      });
       return { ...layout, keySizes };
     });
   };
@@ -120,15 +121,18 @@ export function useLayoutEditor(
   };
 
   const replaceSelectedKey = (key: string) => {
-    if (!selectedKey) return;
+    const targets =
+      selectedKeys.length > 0 ? selectedKeys : selectedKey ? [selectedKey] : [];
+    if (targets.length === 0) return;
+    const targetIds = new Set(
+      targets.map(({ rowIndex, keyIndex }) => `${rowIndex}:${keyIndex}`),
+    );
     updateCustom((layout) => ({
       ...layout,
       rows: layout.rows.map((row, rowIndex) =>
-        rowIndex === selectedKey.rowIndex
-          ? row.map((currentKey, keyIndex) =>
-              keyIndex === selectedKey.keyIndex ? key : currentKey,
-            )
-          : row,
+        row.map((currentKey, keyIndex) =>
+          targetIds.has(`${rowIndex}:${keyIndex}`) ? key : currentKey,
+        ),
       ),
     }));
     setPaletteMode("add");
@@ -143,22 +147,26 @@ export function useLayoutEditor(
   };
 
   const removeSelectedKey = () => {
-    if (!selectedKey) return;
-    const { rowIndex, keyIndex } = selectedKey;
+    const targets =
+      selectedKeys.length > 0 ? selectedKeys : selectedKey ? [selectedKey] : [];
+    if (targets.length === 0) return;
+    const targetIds = new Set(
+      targets.map(({ rowIndex, keyIndex }) => `${rowIndex}:${keyIndex}`),
+    );
     updateCustom((layout) => ({
       ...layout,
       rows: layout.rows.map((row, i) =>
-        i === rowIndex ? row.filter((_, j) => j !== keyIndex) : row,
+        row.filter((_, j) => !targetIds.has(`${i}:${j}`)),
       ),
       keySizes: layout.rows.map((_, i) =>
-        i === rowIndex
-          ? (layout.keySizes?.[i] ?? []).filter((_, j) => j !== keyIndex)
-          : [...(layout.keySizes?.[i] ?? [])],
+        (layout.keySizes?.[i] ?? []).filter(
+          (_, j) => !targetIds.has(`${i}:${j}`),
+        ),
       ),
       keyStyles: layout.rows.map((_, i) =>
-        i === rowIndex
-          ? (layout.keyStyles?.[i] ?? []).filter((_, j) => j !== keyIndex)
-          : [...(layout.keyStyles?.[i] ?? [])],
+        (layout.keyStyles?.[i] ?? []).filter(
+          (_, j) => !targetIds.has(`${i}:${j}`),
+        ),
       ),
     }));
     setSelectedKey(null);
@@ -166,13 +174,148 @@ export function useLayoutEditor(
     setPaletteMode("add");
   };
 
-  const resetSelectedKeySize = () => {
-    if (!selectedKey) return;
-    updateKeySize(
-      selectedKey.rowIndex,
-      selectedKey.keyIndex,
-      () => DEFAULT_KEY_SIZE,
+  const duplicateSelectedKeys = () => {
+    const targets =
+      selectedKeys.length > 0 ? selectedKeys : selectedKey ? [selectedKey] : [];
+    if (targets.length === 0) return;
+
+    const orderedTargets = [...targets].sort(
+      (a, b) => b.rowIndex - a.rowIndex || b.keyIndex - a.keyIndex,
     );
+    updateCustom((layout) => {
+      const rows = layout.rows.map((row) => [...row]);
+      const keySizes = rows.map((row, rowIndex) =>
+        row.map(
+          (_, keyIndex) => layout.keySizes?.[rowIndex]?.[keyIndex] ?? null,
+        ),
+      );
+      const keyStyles = rows.map((row, rowIndex) =>
+        row.map(
+          (_, keyIndex) => layout.keyStyles?.[rowIndex]?.[keyIndex] ?? null,
+        ),
+      );
+
+      orderedTargets.forEach(({ rowIndex, keyIndex }) => {
+        const row = rows[rowIndex];
+        if (!row || keyIndex < 0 || keyIndex >= row.length) return;
+        const insertAt = keyIndex + 1;
+        row.splice(insertAt, 0, row[keyIndex]);
+        const size = keySizes[rowIndex][keyIndex];
+        keySizes[rowIndex].splice(insertAt, 0, size ? { ...size } : null);
+        const style = keyStyles[rowIndex][keyIndex];
+        keyStyles[rowIndex].splice(insertAt, 0, style ? { ...style } : null);
+      });
+
+      return { ...layout, rows, keySizes, keyStyles };
+    });
+
+    const duplicates = [...targets]
+      .sort((a, b) => a.rowIndex - b.rowIndex || a.keyIndex - b.keyIndex)
+      .map((target, _, ordered) => ({
+        rowIndex: target.rowIndex,
+        keyIndex:
+          target.keyIndex +
+          1 +
+          ordered.filter(
+            (item) =>
+              item.rowIndex === target.rowIndex &&
+              item.keyIndex < target.keyIndex,
+          ).length,
+      }));
+    setSelectedKeys(duplicates);
+    setSelectedKey(duplicates[duplicates.length - 1] ?? null);
+    if (duplicates.length > 0) {
+      const selected = duplicates[duplicates.length - 1];
+      setSelectedRow(selected.rowIndex);
+      const source = [...targets].sort(
+        (a, b) => a.rowIndex - b.rowIndex || a.keyIndex - b.keyIndex,
+      )[duplicates.length - 1];
+      const size = sizeFor(source.rowIndex, source.keyIndex);
+      setWidthDraft(String(size.width));
+      setHeightDraft(String(size.height));
+    }
+  };
+
+  const moveKey = (
+    fromRow: number,
+    fromIndex: number,
+    toRow: number,
+    insertIndex: number,
+  ) => {
+    if (
+      fromRow === toRow &&
+      (insertIndex === fromIndex || insertIndex === fromIndex + 1)
+    ) {
+      return;
+    }
+    updateCustom((layout) => {
+      if (
+        fromRow < 0 ||
+        fromRow >= layout.rows.length ||
+        fromIndex < 0 ||
+        fromIndex >= layout.rows[fromRow].length ||
+        toRow < 0 ||
+        toRow >= layout.rows.length
+      ) {
+        return layout;
+      }
+
+      const rows = layout.rows.map((row) => [...row]);
+      const keySizes = rows.map((row, rowIndex) =>
+        row.map(
+          (_, keyIndex) => layout.keySizes?.[rowIndex]?.[keyIndex] ?? null,
+        ),
+      );
+      const keyStyles = rows.map((row, rowIndex) =>
+        row.map(
+          (_, keyIndex) => layout.keyStyles?.[rowIndex]?.[keyIndex] ?? null,
+        ),
+      );
+      const [key] = rows[fromRow].splice(fromIndex, 1);
+      const [size] = keySizes[fromRow].splice(fromIndex, 1);
+      const [style] = keyStyles[fromRow].splice(fromIndex, 1);
+      const targetIndex =
+        toRow === fromRow && insertIndex > fromIndex
+          ? insertIndex - 1
+          : insertIndex;
+      const at = Math.max(0, Math.min(targetIndex, rows[toRow].length));
+      rows[toRow].splice(at, 0, key);
+      keySizes[toRow].splice(at, 0, size ?? null);
+      keyStyles[toRow].splice(at, 0, style ?? null);
+      return { ...layout, rows, keySizes, keyStyles };
+    });
+    const keyIndex =
+      toRow === fromRow && insertIndex > fromIndex
+        ? insertIndex - 1
+        : insertIndex;
+    setSelectedRow(toRow);
+    setSelectedKey({ rowIndex: toRow, keyIndex });
+    setSelectedKeys([{ rowIndex: toRow, keyIndex }]);
+  };
+
+  const clearKeySelection = () => {
+    setSelectedKey(null);
+    setSelectedKeys([]);
+    setPaletteMode("add");
+  };
+
+  const selectAllKeys = () => {
+    const allKeys = selected.rows.flatMap((row, rowIndex) =>
+      row.map((_, keyIndex) => ({ rowIndex, keyIndex })),
+    );
+    const lastKey = allKeys[allKeys.length - 1] ?? null;
+    setSelectedKeys(allKeys);
+    setSelectedKey(lastKey);
+    if (lastKey) {
+      setSelectedRow(lastKey.rowIndex);
+      const size = sizeFor(lastKey.rowIndex, lastKey.keyIndex);
+      setWidthDraft(String(size.width));
+      setHeightDraft(String(size.height));
+    }
+  };
+
+  const resetSelectedKeySize = () => {
+    updateSelectedKeySizes(() => DEFAULT_KEY_SIZE);
   };
 
   const resetSelectedKeyStyle = () => {
@@ -208,12 +351,7 @@ export function useLayoutEditor(
     const normalized =
       Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_KEY_SIZE.width;
     setWidthDraft(String(normalized));
-    if (selectedKey) {
-      updateKeySize(selectedKey.rowIndex, selectedKey.keyIndex, (size) => ({
-        ...size,
-        width: normalized,
-      }));
-    }
+    updateSelectedKeySizes((size) => ({ ...size, width: normalized }));
   };
 
   const commitHeight = (value: string) => {
@@ -221,33 +359,22 @@ export function useLayoutEditor(
     const normalized =
       Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_KEY_SIZE.height;
     setHeightDraft(String(normalized));
-    if (selectedKey) {
-      updateKeySize(selectedKey.rowIndex, selectedKey.keyIndex, (size) => ({
-        ...size,
-        height: normalized,
-      }));
-    }
+    updateSelectedKeySizes((size) => ({ ...size, height: normalized }));
   };
 
   const onWidthDraftChange = (value: string) => {
     setWidthDraft(value);
     const parsed = Number(value);
-    if (selectedKey && Number.isFinite(parsed) && parsed > 0) {
-      updateKeySize(selectedKey.rowIndex, selectedKey.keyIndex, (size) => ({
-        ...size,
-        width: parsed,
-      }));
+    if (Number.isFinite(parsed) && parsed > 0) {
+      updateSelectedKeySizes((size) => ({ ...size, width: parsed }));
     }
   };
 
   const onHeightDraftChange = (value: string) => {
     setHeightDraft(value);
     const parsed = Number(value);
-    if (selectedKey && Number.isFinite(parsed) && parsed > 0) {
-      updateKeySize(selectedKey.rowIndex, selectedKey.keyIndex, (size) => ({
-        ...size,
-        height: parsed,
-      }));
+    if (Number.isFinite(parsed) && parsed > 0) {
+      updateSelectedKeySizes((size) => ({ ...size, height: parsed }));
     }
   };
 
@@ -279,10 +406,19 @@ export function useLayoutEditor(
           )
         : [...selectedKeys, selection]
       : [selection];
-    setSelectedKey(nextSelection.length > 0 ? selection : null);
+    const activeSelection = nextSelection[nextSelection.length - 1] ?? null;
+    setSelectedKey(activeSelection);
     setSelectedKeys(nextSelection);
-    setWidthDraft(String(size.width));
-    setHeightDraft(String(size.height));
+    if (activeSelection) {
+      setSelectedRow(activeSelection.rowIndex);
+      const activeSize =
+        activeSelection.rowIndex === selection.rowIndex &&
+        activeSelection.keyIndex === selection.keyIndex
+          ? size
+          : sizeFor(activeSelection.rowIndex, activeSelection.keyIndex);
+      setWidthDraft(String(activeSize.width));
+      setHeightDraft(String(activeSize.height));
+    }
   };
 
   const renameLayout = (name: string) =>
@@ -290,6 +426,21 @@ export function useLayoutEditor(
 
   const setBackgroundColor = (backgroundColor: string | undefined) =>
     updateCustom((layout) => ({ ...layout, backgroundColor }));
+
+  const setAppearance = (appearance: LayoutAppearance) =>
+    updateCustom((layout) => ({ ...layout, appearance }));
+
+  const setTransparency = (transparency: number) =>
+    updateCustom((layout) => ({ ...layout, transparency }));
+
+  const setKeyGap = (keyGap: number) =>
+    updateCustom((layout) => ({ ...layout, keyGap: normalizeKeyGap(keyGap) }));
+
+  const setKeyRadius = (keyRadius: number) =>
+    updateCustom((layout) => ({ ...layout, keyRadius }));
+
+  const setKeyLabelSize = (keyLabelSize: number) =>
+    updateCustom((layout) => ({ ...layout, keyLabelSize }));
 
   const addRow = () =>
     updateCustom((layout) => ({
@@ -373,7 +524,9 @@ export function useLayoutEditor(
       name: `${selected.name} copy`,
       base: selected.base,
       rows: selected.rows.map((row) => [...row]),
+      appearance: selected.appearance,
       backgroundColor: selected.backgroundColor,
+      transparency: selected.transparency,
       keySizes: selected.keySizes?.map((row) =>
         row.map((size) => (size ? { ...size } : null)),
       ),
@@ -415,11 +568,19 @@ export function useLayoutEditor(
     setTemplate,
     selectLayout,
     selectKey,
+    clearKeySelection,
+    selectAllKeys,
     renameLayout,
+    setAppearance,
     setBackgroundColor,
+    setTransparency,
+    setKeyGap,
+    setKeyRadius,
+    setKeyLabelSize,
     insertKeyAt,
     pickPaletteKey,
     removeSelectedKey,
+    duplicateSelectedKeys,
     resetSelectedKeySize,
     resetSelectedKeyStyle,
     updateSelectedKeyStyle,
@@ -430,6 +591,7 @@ export function useLayoutEditor(
     addRow,
     removeRow,
     moveRow,
+    moveKey,
     createLayout,
     duplicateLayout,
     deleteLayout,

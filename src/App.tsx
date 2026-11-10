@@ -5,6 +5,12 @@ import LayoutEditor from "./components/editor/LayoutEditor";
 import { Key } from "./components/Key";
 import { KeyboardGrid } from "./components/KeyboardGrid";
 import Header from "./components/TitleBar";
+import {
+  DEFAULT_KEY_GAP,
+  DEFAULT_KEY_LABEL_SIZE,
+  DEFAULT_KEY_RADIUS,
+  layoutSurfaceStyle,
+} from "./utils/boardConfig";
 import { useKeyboard } from "./utils/useKeyboard";
 
 const windowLabel = getCurrentWindow().label;
@@ -25,7 +31,12 @@ function Keyboard() {
     layouts,
     setLayout,
     rows,
+    appearance,
     backgroundColor,
+    transparency,
+    keyGap,
+    keyRadius,
+    keyLabelSize,
     unitFor,
     keySizeFor,
     styleFor,
@@ -54,9 +65,7 @@ function Keyboard() {
   const minimumWidth = Math.max(220, Math.ceil(maxColumns * 5.5 + 10));
   const minimumHeight = Math.max(
     82,
-    Math.ceil(
-      26 + rows.length * 17 * maxRowHeight + Math.max(0, rows.length - 1) * 2,
-    ),
+    Math.ceil(26 + rows.length * 17 * maxRowHeight),
   );
 
   useEffect(() => {
@@ -70,8 +79,13 @@ function Keyboard() {
 
   return (
     <main
-      className="flex h-screen w-screen flex-col overflow-hidden bg-zinc-950"
-      style={backgroundColor ? { backgroundColor } : undefined}
+      className="keyboard-surface flex h-screen w-screen flex-col overflow-hidden"
+      data-appearance={appearance}
+      style={layoutSurfaceStyle({
+        appearance,
+        backgroundColor,
+        transparency,
+      })}
     >
       <Header
         layouts={layouts}
@@ -87,7 +101,8 @@ function Keyboard() {
         rows={rows}
         unitFor={unitFor}
         keySizeFor={keySizeFor}
-        renderKey={(key, rowIndex, keyIndex, span, size) => {
+        keyGap={keyGap ?? DEFAULT_KEY_GAP}
+        renderKey={(key, rowIndex, keyIndex, span, size, keyGapSize) => {
           const effective = resolve(key);
           const keyStyle = styleFor(rowIndex, keyIndex);
           return (
@@ -101,7 +116,13 @@ function Keyboard() {
               span={span}
               labelColor={keyStyle.labelColor}
               borderColor={keyStyle.borderColor}
+              borderTransparency={keyStyle.borderTransparency}
               backgroundColor={keyStyle.backgroundColor}
+              keyRadius={keyRadius ?? DEFAULT_KEY_RADIUS}
+              keyGap={keyGapSize}
+              keyLabelSize={keyLabelSize ?? DEFAULT_KEY_LABEL_SIZE}
+              appearance={keyStyle.appearance ?? appearance}
+              transparency={keyStyle.transparency ?? transparency}
               isActive={isLatched(key)}
               isPressed={isPressed(effective)}
               isAvailable={isAccentAvailable(effective)}
@@ -119,7 +140,8 @@ function App() {
     const preventContextMenu = (event: MouseEvent) => event.preventDefault();
     document.addEventListener("contextmenu", preventContextMenu);
 
-    return () => document.removeEventListener("contextmenu", preventContextMenu);
+    return () =>
+      document.removeEventListener("contextmenu", preventContextMenu);
   }, []);
 
   return windowLabel === "editor" ? <LayoutEditor /> : <Keyboard />;

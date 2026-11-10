@@ -13,10 +13,15 @@ import { useState, type ReactNode } from "react";
 import type { DropTarget } from "./types";
 
 type RowDragData = { type: "row"; rowIndex: number };
-type ActiveDragData = RowDragData | { key: string };
+type KeyDragData = { type: "key"; rowIndex: number; keyIndex: number };
+type PaletteDragData = { type: "palette"; key: string };
+type ActiveDragData = RowDragData | KeyDragData | PaletteDragData;
 
 const isRowDragData = (data: ActiveDragData | undefined): data is RowDragData =>
   !!data && "type" in data && data.type === "row";
+
+const isKeyDragData = (data: ActiveDragData | undefined): data is KeyDragData =>
+  !!data && "type" in data && data.type === "key";
 
 type OverDropData = {
   rowIndex: number;
@@ -135,6 +140,12 @@ interface UseLayoutDragAndDropOptions {
   rows: string[][];
   labelFor: (key: string) => string;
   onInsertKey: (key: string, rowIndex: number, insertIndex: number) => void;
+  onMoveKey: (
+    fromRow: number,
+    fromIndex: number,
+    toRow: number,
+    insertIndex: number,
+  ) => void;
   onMoveRow: (fromIndex: number, insertBeforeIndex: number) => void;
 }
 
@@ -143,6 +154,7 @@ export function useLayoutDragAndDrop({
   rows,
   labelFor,
   onInsertKey,
+  onMoveKey,
   onMoveRow,
 }: UseLayoutDragAndDropOptions) {
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
@@ -165,6 +177,12 @@ export function useLayoutDragAndDrop({
     if (isRowDragData(data)) {
       setDraggingRowIndex(data.rowIndex);
       setActiveDragLabel(`Row ${data.rowIndex + 1}`);
+      return;
+    }
+    if (isKeyDragData(data)) {
+      setActiveDragLabel(
+        labelFor(rows[data.rowIndex]?.[data.keyIndex] ?? ""),
+      );
       return;
     }
     setActiveDragLabel(data?.key ? labelFor(data.key) : null);
@@ -219,7 +237,14 @@ export function useLayoutDragAndDrop({
     const data = event.active.data.current as ActiveDragData | undefined;
     if (isRowDragData(data)) {
       if (rowDropTarget !== null) onMoveRow(data.rowIndex, rowDropTarget);
-    } else if (data?.key && dropTarget) {
+    } else if (isKeyDragData(data) && dropTarget) {
+      onMoveKey(
+        data.rowIndex,
+        data.keyIndex,
+        dropTarget.rowIndex,
+        dropTarget.index,
+      );
+    } else if (data?.type === "palette" && dropTarget) {
       onInsertKey(data.key, dropTarget.rowIndex, dropTarget.index);
     }
     resetDragState();
@@ -238,4 +263,31 @@ export function useLayoutDragAndDrop({
     handleDragEnd,
     handleDragCancel,
   };
+}
+
+export function KeyDragHandle({
+  rowIndex,
+  keyIndex,
+  children,
+}: {
+  rowIndex: number;
+  keyIndex: number;
+  children: ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `layout-key:${rowIndex}:${keyIndex}`,
+    data: { type: "key", rowIndex, keyIndex },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className="h-full w-full cursor-grab active:cursor-grabbing"
+      style={{ opacity: isDragging ? 0.4 : 1 }}
+      {...listeners}
+      {...attributes}
+    >
+      {children}
+    </div>
+  );
 }
