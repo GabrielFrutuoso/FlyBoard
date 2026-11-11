@@ -5,11 +5,13 @@ import LayoutEditor from "./components/editor/LayoutEditor";
 import { Key } from "./components/Key";
 import { KeyboardGrid } from "./components/KeyboardGrid";
 import Header from "./components/TitleBar";
+import { isModifier } from "./keys";
 import {
   DEFAULT_KEY_GAP,
   DEFAULT_KEY_LABEL_SIZE,
   DEFAULT_KEY_RADIUS,
   layoutSurfaceStyle,
+  parseMacroKey,
 } from "./utils/boardConfig";
 import { useKeyboard } from "./utils/useKeyboard";
 
@@ -113,6 +115,13 @@ function Keyboard() {
               macroName={getMacroName(effective)}
               size={size}
               onClick={() => handleKey(effective)}
+              onRepeat={() => handleKey(effective)}
+              repeatable={
+                !isModifier(effective) &&
+                effective !== "Caps" &&
+                effective !== "Fn" &&
+                parseMacroKey(effective) === null
+              }
               span={span}
               labelColor={keyStyle.labelColor}
               borderColor={keyStyle.borderColor}

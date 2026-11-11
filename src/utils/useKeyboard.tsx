@@ -267,6 +267,11 @@ export function useKeyboard() {
     }
   };
 
+  const releaseLatchedModifiers = () => {
+    setActiveModifiers([]);
+    setUnusedModifiers([]);
+  };
+
   const runMacro = (macro: Macro) => {
     runMacroSteps(macro.steps, layoutRef.current)
       .then(() => setInputError(null))
@@ -276,16 +281,19 @@ export function useKeyboard() {
   const handleKey = (key: string) => {
     const macroId = parseMacroKey(key);
     if (macroId !== null) {
+      releaseLatchedModifiers();
       const macro = macrosById.get(macroId);
       if (macro) runMacro(macro);
       return;
     }
     if (key === "Caps") {
+      releaseLatchedModifiers();
       // Toggle the real lock, then read back what the OS actually settled on.
       send("Caps", []).then(syncCapsLock);
       return;
     }
     if (key === "Fn") {
+      releaseLatchedModifiers();
       setFnActive((prev) => !prev);
       return;
     }
@@ -307,12 +315,13 @@ export function useKeyboard() {
       if (pendingDeadKey?.mark === mark) {
         setPendingDeadKey(null);
         send(key, effectiveModifiers, pendingDeadKey.key, physicalModifierHeld);
-        setUnusedModifiers([]);
+        releaseLatchedModifiers();
         return;
       }
       if (pendingDeadKey)
         send(key, effectiveModifiers, pendingDeadKey.key, physicalModifierHeld);
       setPendingDeadKey({ source: key, key: text, mark });
+      releaseLatchedModifiers();
       return;
     }
 
@@ -322,7 +331,7 @@ export function useKeyboard() {
         : undefined;
     setPendingDeadKey(null);
     send(key, effectiveModifiers, composedText, physicalModifierHeld);
-    setUnusedModifiers([]);
+    releaseLatchedModifiers();
   };
 
   return {
