@@ -11,8 +11,9 @@ keyboard events.
 ## Kiosk mode
 
 Use the kiosk button to dock the keyboard across the bottom of the screen.
-Drag the grip at the top to change its height. Exiting kiosk mode restores the
-previous window size and position.
+Drag the grip at the top to change its height; FlyBoard remembers that height
+the next time kiosk mode is enabled. Exiting kiosk mode restores the previous
+window size and position.
 
 ## Layout surface appearance
 
