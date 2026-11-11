@@ -11,7 +11,7 @@ import {
   ChevronsDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { type MouseEvent, type ReactNode } from "react";
+import { type MouseEvent, type ReactNode, useEffect, useRef } from "react";
 import { getMacroIcon, type MacroIconId } from "../utils/macroIcons";
 import {
   DEFAULT_KEY_LABEL_SIZE,
@@ -25,6 +25,8 @@ import { surfaceStyle } from "../utils/boardConfig";
 interface KeyProps {
   label: string;
   onClick: (event: MouseEvent<HTMLButtonElement>) => void;
+  onRepeat?: () => void;
+  repeatable?: boolean;
   onContextMenu?: (event: MouseEvent<HTMLButtonElement>) => void;
   span?: number;
   className?: string;
@@ -107,6 +109,8 @@ const getButtonStyles = (
 export const Key = ({
   label,
   onClick,
+  onRepeat,
+  repeatable = false,
   onContextMenu,
   span = 4,
   className = "",
@@ -126,6 +130,19 @@ export const Key = ({
   keyGap = 2,
   keyLabelSize = DEFAULT_KEY_LABEL_SIZE,
 }: KeyProps) => {
+  const repeatDelay = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const repeatInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const suppressPointerClick = useRef(false);
+
+  const clearRepeat = () => {
+    if (repeatDelay.current !== null) clearTimeout(repeatDelay.current);
+    if (repeatInterval.current !== null) clearInterval(repeatInterval.current);
+    repeatDelay.current = null;
+    repeatInterval.current = null;
+  };
+
+  useEffect(() => clearRepeat, []);
+
   const keyGapSize = Math.min(MAX_KEY_GAP, Math.max(0, keyGap));
   const MacroIcon = getMacroIcon(macroIcon);
   const icon = MacroIcon ? <MacroIcon size={ICON_SIZE} /> : getKeyIcon(label);
@@ -180,15 +197,43 @@ export const Key = ({
         event.preventDefault();
         audioPlayer.play();
       }}
+      onPointerDown={(event) => {
+        if (!repeatable || !onRepeat || event.button !== 0 || !event.isPrimary)
+          return;
+
+        clearRepeat();
+        suppressPointerClick.current = true;
+        onRepeat();
+        event.currentTarget.setPointerCapture(event.pointerId);
+        repeatDelay.current = setTimeout(() => {
+          repeatInterval.current = setInterval(onRepeat, 50);
+        }, 500);
+      }}
+      onPointerUp={clearRepeat}
+      onPointerCancel={() => {
+        clearRepeat();
+        suppressPointerClick.current = false;
+      }}
+      onLostPointerCapture={clearRepeat}
       onContextMenu={onContextMenu}
-      onClick={onClick}
+      onClick={(event) => {
+        if (event.detail > 0 && suppressPointerClick.current) {
+          suppressPointerClick.current = false;
+          return;
+        }
+        onClick(event);
+      }}
       title={macroName ?? label}
       aria-label={macroName ?? label}
     >
       {showHoverHighlight && (
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-0 rounded-[inherit] bg-white/10 opacity-0 transition-opacity group-hover/button:opacity-100"
+          className={`pointer-events-none absolute inset-0 z-0 rounded-[inherit] bg-white/10 transition-opacity ${
+            isActive
+              ? "opacity-100"
+              : "opacity-0 group-hover/button:opacity-100"
+          }`}
         />
       )}
       <span className="relative z-10">{icon ?? label}</span>
