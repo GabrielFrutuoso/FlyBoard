@@ -172,7 +172,7 @@ fn modifier_key(modifier: Modifier) -> KeyCode {
 fn char_to_keycode(character: char) -> Result<(KeyCode, bool), String> {
     let is_upper = character.is_ascii_uppercase();
     let base_char = character.to_ascii_lowercase();
-    
+
     Ok(match base_char {
         'a' => (KeyCode::KEY_A, is_upper),
         'b' => (KeyCode::KEY_B, is_upper),
@@ -369,7 +369,7 @@ fn send_unicode_text(text: &str) -> Result<(), String> {
 fn send_resolved(key: (KeyCode, bool), modifiers: &[Modifier]) -> Result<(), String> {
     let (target, needs_shift) = key;
     let mut active_modifiers = modifiers.to_vec();
-    
+
     // Add Shift if needed
     if needs_shift && !active_modifiers.contains(&Modifier::Shift) {
         active_modifiers.push(Modifier::Shift);

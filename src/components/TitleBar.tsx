@@ -1,6 +1,13 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { ChevronDown, ChevronRight, Minus, Pencil, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Minus,
+  PanelBottom,
+  Pencil,
+  X,
+} from "lucide-react";
 import { Button } from "./ui/button";
 import {
   DropdownMenu,
@@ -30,9 +37,19 @@ interface HeaderProps {
   layouts?: LayoutOption[];
   activeLayoutId?: string;
   onSelectLayout?: (id: string) => void;
+  isKiosk?: boolean;
+  isTogglingKiosk?: boolean;
+  onToggleKiosk?: () => void;
 }
 
-const Header = ({ layouts, activeLayoutId, onSelectLayout }: HeaderProps) => {
+const Header = ({
+  layouts,
+  activeLayoutId,
+  onSelectLayout,
+  isKiosk = false,
+  isTogglingKiosk = false,
+  onToggleKiosk,
+}: HeaderProps) => {
   const activeName =
     layouts?.find((layout) => layout.id === activeLayoutId)?.name ?? "PT-BR";
 
@@ -40,7 +57,7 @@ const Header = ({ layouts, activeLayoutId, onSelectLayout }: HeaderProps) => {
     <header className="flex shrink-0 select-none items-center justify-between pl-1.5">
       <div className="flex items-center gap-1">
         <h1
-          data-tauri-drag-region
+          data-tauri-drag-region={!isKiosk ? "" : undefined}
           className="text-xs font-semibold text-zinc-300"
         >
           FlyBoard
@@ -115,22 +132,39 @@ const Header = ({ layouts, activeLayoutId, onSelectLayout }: HeaderProps) => {
       </div>
 
       <div
-        data-tauri-drag-region
+        data-tauri-drag-region={!isKiosk ? "" : undefined}
         className="h-6 min-w-3 flex-1 self-stretch"
         aria-hidden="true"
       />
 
       <div className="flex items-center gap-0.5">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-auto w-auto rounded-sm p-0.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
-          onClick={() => appWindow.minimize()}
-          aria-label="Minimize"
-        >
-          <Minus size={16} />
-        </Button>
+        {onToggleKiosk && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-auto w-auto rounded-sm p-0.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+            onClick={onToggleKiosk}
+            disabled={isTogglingKiosk}
+            title={isKiosk ? "Exit kiosk mode" : "Enable kiosk mode"}
+            aria-label={isKiosk ? "Exit kiosk mode" : "Enable kiosk mode"}
+            aria-pressed={isKiosk}
+          >
+            <PanelBottom size={14} />
+          </Button>
+        )}
+        {!isKiosk && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-auto w-auto rounded-sm p-0.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+            onClick={() => appWindow.minimize()}
+            aria-label="Minimize"
+          >
+            <Minus size={16} />
+          </Button>
+        )}
         <Button
           type="button"
           variant="ghost"

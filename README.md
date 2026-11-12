@@ -8,6 +8,13 @@ FlyBoard is a compact desktop virtual keyboard. On Linux it creates a native
 kernel `uinput` keyboard, so the currently focused application receives normal
 keyboard events.
 
+## Kiosk mode
+
+Use the kiosk button to dock the keyboard across the bottom of the screen.
+Drag the grip at the top to change its height; FlyBoard remembers that height
+the next time kiosk mode is enabled. Exiting kiosk mode restores the previous
+window size and position.
+
 ## Layout surface appearance
 
 Open **Edit layouts & macros**, then choose a custom layout or duplicate a
@@ -54,6 +61,18 @@ You should see that your user has read and write access (`rw-`).
 - Physical key highlighting follows your session's existing access to `/dev/input/event*` keyboard devices
 
 ## Troubleshooting
+
+### `UnexpectedMenuKind` error when compiling Tauri
+
+This error occurs when newer Tauri menu macros are resolved alongside Tauri
+2.10.2. The Cargo manifest pins the compatible Tauri and macro versions; keep
+`src-tauri/Cargo.lock` with those changes.
+
+From the repository root, verify the dependencies with:
+
+```bash
+cargo check --manifest-path src-tauri/Cargo.toml --locked
+```
 
 ### "Permission Denied" error when starting FlyBoard
 
