@@ -2,16 +2,10 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useRef, useState } from "react";
 import {
-  accentFor,
-  FN_MAP,
   getPhysicalKeyLabel,
-  isAccentBase,
   isCharKey,
   isModifier,
   MODIFIERS,
-  shifted,
-  toKeyId,
-  toPhysicalKeyId,
   type Layout,
   type Modifier,
 } from "../keys";
@@ -19,6 +13,7 @@ import {
   allLayouts,
   BUILTIN_LAYOUTS,
   DEFAULT_KEY_SIZE,
+  normalizeKeyGap,
   loadBoards,
   parseMacroKey,
   runMacroSteps,
@@ -28,44 +23,14 @@ import {
   type Macro,
 } from "./boardConfig";
 import type { MacroIconId } from "./macroIcons";
-
-const isLetter = (key: string) => /^[a-z]$/.test(key);
-// Use physical key events for these shifted symbols; Linux Unicode entry inherits held Shift.
-const PHYSICAL_SHIFT_SYMBOLS = new Set(["<", ">", ":", "?", "+", "_", "|", "{", "}", "!", "@", "#", "$", "%", "^", "&", "*", "(", ")",]);
-
-const getKeyLabel = (
-  key: string,
-  shiftActive: boolean,
-  capsActive: boolean,
-  layout: Layout,
-) => {
-  if (!isCharKey(key)) return key;
-  if (isLetter(key))
-    return shiftActive !== capsActive ? key.toUpperCase() : key;
-  return shiftActive ? shifted(key, layout) : key;
-};
-
-const resolveKey = (key: string, fnActive: boolean, layout: Layout) =>
-  fnActive && FN_MAP[layout]?.[key] ? FN_MAP[layout][key] : key;
-
-const deadKeyMark = (key: string, layout: Layout) => {
-  if (layout !== "pt-br") return undefined;
-  return (
-    {
-      "´": "\u0301",
-      "`": "\u0300",
-      "~": "\u0303",
-      "^": "\u0302",
-    }[key] ?? undefined
-  );
-};
-
-const composeDeadKey = (deadKey: string, mark: string, text: string) => {
-  if (text === " ") return deadKey;
-  const marked = `${text}${mark}`;
-  const composed = marked.normalize("NFC");
-  return composed === marked ? `${deadKey}${text}` : composed;
-};
+import {
+  composeDeadKey,
+  deadKeyMark,
+  getKeyLabel,
+  isValidAccentBase,
+  resolveKey,
+} from "./keyboardText";
+import { sendKeyboardInput } from "./keyboardOutput";
 
 interface InputStatus {
   ready: boolean;
@@ -121,7 +86,7 @@ export function useKeyboard() {
 
   const syncInputStatus = () => {
     invoke<InputStatus>("input_status")
-      .then((status) => setInputError(status.ready ? null : status.message))
+      .then((status) => setInputError(status.message))
       .catch((error) => setInputError(errorMessage(error)));
   };
 
@@ -199,39 +164,16 @@ export function useKeyboard() {
     text?: string,
     physicalModifierHeld = false,
   ) => {
-    const hasShortcutModifier = modifiers.some(
-      (modifier) => modifier !== "Shift",
-    );
-    const outputText =
-      text ??
-      getKeyLabel(key, modifiers.includes("Shift"), capsActive, layout);
-    const canUsePhysicalShift =
-      physicalModifierHeld &&
-      modifiers.includes("Shift") &&
-      PHYSICAL_SHIFT_SYMBOLS.has(outputText);
-    const useCustomText =
-      !activeLayout.builtin &&
-      isCharKey(key) &&
-      !hasShortcutModifier &&
-      !canUsePhysicalShift;
-    const request =
-      isCharKey(key) &&
-      !hasShortcutModifier &&
-      (!physicalModifierHeld || useCustomText)
-        ? invoke<void>("send_text", {
-            text: outputText,
-          })
-        : invoke<void>("send_key", {
-            key: canUsePhysicalShift
-              ? toPhysicalKeyId(key, layout)
-              : !activeLayout.builtin && isCharKey(key)
-                ? toKeyId(key)
-                : toPhysicalKeyId(key, layout),
-            modifiers,
-          });
-
-    return request
-      .then(() => setInputError(null))
+    return sendKeyboardInput({
+      key,
+      modifiers,
+      text,
+      physicalModifierHeld,
+      capsActive,
+      layout,
+      builtinLayout: activeLayout.builtin,
+    })
+      .then(syncInputStatus)
       .catch((error) => setInputError(errorMessage(error)));
   };
 
@@ -247,25 +189,33 @@ export function useKeyboard() {
     }
   };
 
+  const releaseLatchedModifiers = () => {
+    setActiveModifiers([]);
+    setUnusedModifiers([]);
+  };
+
   const runMacro = (macro: Macro) => {
     runMacroSteps(macro.steps, layoutRef.current)
-      .then(() => setInputError(null))
+      .then(syncInputStatus)
       .catch((error) => setInputError(errorMessage(error)));
   };
 
   const handleKey = (key: string) => {
     const macroId = parseMacroKey(key);
     if (macroId !== null) {
+      releaseLatchedModifiers();
       const macro = macrosById.get(macroId);
       if (macro) runMacro(macro);
       return;
     }
     if (key === "Caps") {
+      releaseLatchedModifiers();
       // Toggle the real lock, then read back what the OS actually settled on.
       send("Caps", []).then(syncCapsLock);
       return;
     }
     if (key === "Fn") {
+      releaseLatchedModifiers();
       setFnActive((prev) => !prev);
       return;
     }
@@ -287,12 +237,13 @@ export function useKeyboard() {
       if (pendingDeadKey?.mark === mark) {
         setPendingDeadKey(null);
         send(key, effectiveModifiers, pendingDeadKey.key, physicalModifierHeld);
-        setUnusedModifiers([]);
+        releaseLatchedModifiers();
         return;
       }
       if (pendingDeadKey)
         send(key, effectiveModifiers, pendingDeadKey.key, physicalModifierHeld);
       setPendingDeadKey({ source: key, key: text, mark });
+      releaseLatchedModifiers();
       return;
     }
 
@@ -302,7 +253,7 @@ export function useKeyboard() {
         : undefined;
     setPendingDeadKey(null);
     send(key, effectiveModifiers, composedText, physicalModifierHeld);
-    setUnusedModifiers([]);
+    releaseLatchedModifiers();
   };
 
   return {
@@ -311,7 +262,12 @@ export function useKeyboard() {
     layouts: layouts.map(({ id, name }) => ({ id, name })),
     setLayout: setActiveLayout,
     rows: activeLayout.rows,
+    appearance: activeLayout.appearance ?? "solid",
     backgroundColor: activeLayout.backgroundColor,
+    transparency: activeLayout.transparency,
+    keyGap: normalizeKeyGap(activeLayout.keyGap),
+    keyRadius: activeLayout.keyRadius,
+    keyLabelSize: activeLayout.keyLabelSize,
     keySizeFor: (rowIndex: number, keyIndex: number) =>
       activeLayout.keySizes?.[rowIndex]?.[keyIndex] ?? DEFAULT_KEY_SIZE,
     styleFor: (rowIndex: number, keyIndex: number): KeyStyle =>
@@ -349,8 +305,7 @@ export function useKeyboard() {
 
       const label = getKeyLabel(key, shiftActive, capsActive, layout);
       if (deadKeyMark(label, layout)) return true;
-      const pendingAccent = accentFor(pendingDeadKey.key);
-      return pendingAccent ? isAccentBase(pendingAccent, label) : true;
+      return isValidAccentBase(pendingDeadKey.key, label);
     },
     isPressed: (key: string) => pressedKeys.has(key),
     handleKey,

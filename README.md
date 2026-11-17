@@ -8,10 +8,26 @@ FlyBoard is a compact desktop virtual keyboard. On Linux it creates a native
 kernel `uinput` keyboard, so the currently focused application receives normal
 keyboard events.
 
+## Kiosk mode
+
+Use the kiosk button to dock the keyboard across the bottom of the screen.
+Drag the grip at the top to change its height; FlyBoard remembers that height
+the next time kiosk mode is enabled. Exiting kiosk mode restores the previous
+window size and position.
+
+## Layout surface appearance
+
+Open **Edit layouts & macros**, then choose a custom layout or duplicate a
+built-in one. Its **Surface** setting offers **Solid** (the default) and
+**Transparent**. The background color picker customizes the surface. Set
+transparency from 1–100%. Select a key to customize its surface and transparency
+independently; keys can also inherit the layout surface. These settings are
+saved with the layout. Transparent native windows are enabled for the app.
+
 ## Ubuntu installation
 
 > **📦 Important**: Use the `.deb` package (not `.AppImage`) for seamless Linux installation.
-> The `.deb` automatically installs FlyBoard's udev rule and reloads it, allowing immediate access to `/dev/uinput`.
+> The `.deb` automatically installs FlyBoard's udev rule and reloads it, granting the active local session access to `/dev/uinput` and physical keyboard devices.
 
 ### Steps
 
@@ -33,18 +49,32 @@ sudo apt install ./flyboard_*.deb
 ```bash
 ls -l /dev/uinput
 getfacl /dev/uinput
+getfacl /dev/input/event*
 ```
 
 You should see that your user has read and write access (`rw-`).
 
 ### Technical details
 
-- The `.deb` package installs FlyBoard's udev rule at `/usr/lib/udev/rules.d/60-flyboard-uinput.rules`
+- The `.deb` package installs FlyBoard's udev rule at `/usr/lib/udev/rules.d/70-flyboard-input.rules`, after keyboard classification and before session access is applied.
 - A post-installation script automatically reloads udev rules (no manual `udevadm` commands needed)
-- FlyBoard does not add users to the `input` group (which can read physical input devices; a virtual keyboard requires less access)
-- Physical key highlighting follows your session's existing access to `/dev/input/event*` keyboard devices
+- FlyBoard does not add users to the `input` group. Its rule grants access only to the active local session, using `uaccess`.
+- Physical key highlighting and physical Ctrl/Shift combined with on-screen keys require read access to `/dev/input/event*` keyboard devices. The rule grants this access to keyboards, not other input devices.
+- Keyboard-device access lets applications running as your user observe keystrokes. FlyBoard uses it only for live key feedback and modifier state; it does not store keystrokes.
 
 ## Troubleshooting
+
+### `UnexpectedMenuKind` error when compiling Tauri
+
+This error occurs when newer Tauri menu macros are resolved alongside Tauri
+2.10.2. The Cargo manifest pins the compatible Tauri and macro versions; keep
+`src-tauri/Cargo.lock` with those changes.
+
+From the repository root, verify the dependencies with:
+
+```bash
+cargo check --manifest-path src-tauri/Cargo.toml --locked
+```
 
 ### "Permission Denied" error when starting FlyBoard
 
@@ -70,12 +100,13 @@ sudo modprobe uinput
 If you downloaded the `.AppImage` or are developing FlyBoard, you need to manually install the udev rule:
 
 ```bash
-sudo install -Dm644 src-tauri/resources/60-flyboard-uinput.rules /usr/lib/udev/rules.d/60-flyboard-uinput.rules
+sudo install -Dm644 src-tauri/resources/70-flyboard-input.rules /usr/lib/udev/rules.d/70-flyboard-input.rules
 sudo udevadm control --reload-rules
 sudo udevadm trigger --action=change --subsystem-match=misc --sysname-match=uinput
+sudo udevadm trigger --action=change --subsystem-match=input
 ```
 
-Then restart your graphical session. The app displays diagnostics in its window if `/dev/uinput` is unavailable.
+Then restart FlyBoard. If access is still denied, sign out and back in. The app displays diagnostics if virtual output or physical keyboard feedback is unavailable. Reinstall the updated rule if an older FlyBoard installation granted only `/dev/uinput` access.
 
 ## Development: Build and run from source
 
@@ -84,9 +115,10 @@ Then restart your graphical session. The app displays diagnostics in its window 
 If building from source, you need to install the udev rule first:
 
 ```bash
-sudo install -Dm644 src-tauri/resources/60-flyboard-uinput.rules /usr/lib/udev/rules.d/60-flyboard-uinput.rules
+sudo install -Dm644 src-tauri/resources/70-flyboard-input.rules /usr/lib/udev/rules.d/70-flyboard-input.rules
 sudo udevadm control --reload-rules
 sudo udevadm trigger --action=change --subsystem-match=misc --sysname-match=uinput
+sudo udevadm trigger --action=change --subsystem-match=input
 ```
 
 ### Build commands

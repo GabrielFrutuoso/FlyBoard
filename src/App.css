@@ -122,9 +122,41 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
+    background-color: transparent;
   }
   html {
     @apply font-sans;
+    background-color: transparent;
   }
+}
+
+.keyboard-preview-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 8rem;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 0.125rem;
+  padding: 1rem;
+}
+
+.keyboard-preview-backdrop {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 18% 12%, rgb(255 255 255 / 9%), transparent 50%),
+    linear-gradient(135deg, #202226, #121315);
+}
+
+.keyboard-preview-stage[data-appearance="solid"] .keyboard-preview-backdrop {
+  opacity: 0.1;
+}
+
+.keyboard-preview-stage > .keyboard-surface {
+  position: relative;
+  z-index: 1;
 }

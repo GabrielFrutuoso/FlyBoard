@@ -16,11 +16,13 @@
         "title": "FlyBoard",
         "width": 420,
         "height": 150,
+        "center": true,
         "minWidth": 220,
         "minHeight": 82,
         "resizable": true,
         "decorations": false,
-        "alwaysOnTop": true
+        "alwaysOnTop": true,
+        "transparent": true
       },
       {
         "label": "editor",
@@ -32,7 +34,8 @@
         "visible": false,
         "resizable": true,
         "decorations": false,
-        "alwaysOnTop": false
+        "alwaysOnTop": false,
+        "transparent": true
       }
     ],
     "security": {
@@ -43,12 +46,12 @@
     "active": true,
     "targets": "all",
     "resources": [
-      "resources/60-flyboard-uinput.rules"
+      "resources/70-flyboard-input.rules"
     ],
     "linux": {
       "deb": {
         "files": {
-          "/usr/lib/udev/rules.d/60-flyboard-uinput.rules": "resources/60-flyboard-uinput.rules"
+          "/usr/lib/udev/rules.d/70-flyboard-input.rules": "resources/70-flyboard-input.rules"
         },
         "postInstallScript": "resources/postinst"
       }

@@ -1,4 +1,5 @@
 import { Minus, Save, X } from "lucide-react";
+import { useEffect } from "react";
 import { HashRouter, NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { Button } from "../ui/button";
 import LayoutsTab from "./LayoutsTab";
@@ -23,6 +24,20 @@ const LayoutEditor = () => {
 
   const displayError = windowError ?? error;
 
+  useEffect(() => {
+    const handleSaveShortcut = (event: KeyboardEvent) => {
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        event.key.toLowerCase() === "s"
+      ) {
+        event.preventDefault();
+        if (dirty && !saving) save();
+      }
+    };
+    window.addEventListener("keydown", handleSaveShortcut);
+    return () => window.removeEventListener("keydown", handleSaveShortcut);
+  }, [dirty, save, saving]);
+
   return (
     <HashRouter>
       <main className="flex h-screen w-screen flex-col bg-zinc-950 text-zinc-200">
@@ -46,6 +61,17 @@ const LayoutEditor = () => {
             aria-hidden="true"
           />
           <div className="ml-auto flex items-center gap-1 pr-1">
+            {(dirty || saving) && (
+              <span
+                className={`mr-1 text-[10px] ${
+                  dirty ? "text-amber-300" : "text-zinc-400"
+                }`}
+                role="status"
+                aria-live="polite"
+              >
+                {saving ? "Saving…" : "Unsaved changes"}
+              </span>
+            )}
             {displayError && (
               <span
                 className="max-w-56 truncate text-[10px] text-red-400"
@@ -60,6 +86,7 @@ const LayoutEditor = () => {
               onClick={save}
               disabled={saving || !dirty}
               className="h-auto cursor-pointer gap-1 px-2 py-1 text-xs disabled:opacity-40"
+              title="Save changes (Ctrl/⌘+S)"
             >
               <Save size={12} />
               {saving ? "Saving…" : dirty ? "Save" : "Saved"}

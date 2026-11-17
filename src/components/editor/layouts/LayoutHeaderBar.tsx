@@ -1,5 +1,10 @@
 import { Copy, Trash2 } from "lucide-react";
-import type { BoardLayout } from "../../../utils/boardConfig";
+import type {
+  BoardLayout,
+  LayoutAppearance,
+} from "../../../utils/boardConfig";
+import { surfaceTransparency } from "../../../utils/boardConfig";
+import { SurfaceControls } from "./SurfaceControls";
 
 const smallIconButton =
   "cursor-pointer rounded-sm p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100";
@@ -8,7 +13,9 @@ interface LayoutHeaderBarProps {
   layout: BoardLayout;
   editable: boolean;
   onRename: (name: string) => void;
+  onAppearanceChange: (appearance: LayoutAppearance) => void;
   onBackgroundColorChange: (color: string | undefined) => void;
+  onTransparencyChange: (transparency: number) => void;
   onDuplicate: () => void;
   onDelete: () => void;
 }
@@ -18,12 +25,14 @@ export function LayoutHeaderBar({
   layout,
   editable,
   onRename,
+  onAppearanceChange,
   onBackgroundColorChange,
+  onTransparencyChange,
   onDuplicate,
   onDelete,
 }: LayoutHeaderBarProps) {
   return (
-    <div className="flex shrink-0 items-center gap-2 border-b border-zinc-800 p-2">
+    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-zinc-800 p-2">
       {editable ? (
         <input
           value={layout.name}
@@ -42,23 +51,18 @@ export function LayoutHeaderBar({
         </span>
       )}
       {editable && (
-        <label className="flex items-center gap-1 text-[10px] text-zinc-500">
-          Keyboard background
-          <input
-            type="color"
-            value={layout.backgroundColor || "#09090b"}
-            onChange={(event) => onBackgroundColorChange(event.target.value)}
-            className="h-6 w-8 cursor-pointer rounded-sm border border-zinc-700 bg-zinc-900 p-0.5"
-            aria-label="Keyboard background color"
-          />
-          <button
-            type="button"
-            onClick={() => onBackgroundColorChange(undefined)}
-            className="cursor-pointer text-[10px] text-zinc-500 hover:text-zinc-200"
-          >
-            Reset
-          </button>
-        </label>
+        <SurfaceControls
+          title="Layout surface"
+          appearance={layout.appearance ?? "solid"}
+          transparency={surfaceTransparency(layout)}
+          backgroundColor={layout.backgroundColor ?? "#09090b"}
+          onAppearanceChange={(value) => {
+            if (value !== "inherit") onAppearanceChange(value);
+          }}
+          onTransparencyChange={onTransparencyChange}
+          onBackgroundColorChange={onBackgroundColorChange}
+          onResetBackgroundColor={() => onBackgroundColorChange(undefined)}
+        />
       )}
       <button
         type="button"
@@ -79,7 +83,7 @@ export function LayoutHeaderBar({
         </button>
       )}
       <span className="ml-auto text-[10px] text-zinc-500">
-        Select a key to edit its size
+        Drag to reorder · Ctrl/⌘-click to multi-select
       </span>
     </div>
   );
