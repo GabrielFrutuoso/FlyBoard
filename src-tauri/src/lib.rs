@@ -83,6 +83,11 @@ pub fn run() {
                 if let Err(error) = input::linux::install_hook(app.handle().clone()) {
                     eprintln!("physical key feedback disabled: {error}");
                 }
+                std::thread::spawn(|| {
+                    if let Err(error) = input::linux::prepare_virtual_keyboard() {
+                        eprintln!("FlyBoard virtual keyboard unavailable: {error}");
+                    }
+                });
             }
             Ok(())
         })
