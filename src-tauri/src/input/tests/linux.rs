@@ -1,6 +1,43 @@
-use super::{key_code, physical_key_id, physical_key_source};
-use crate::input::{KeyId, NamedKey};
-use evdev::KeyCode;
+use super::{is_physical_keyboard, key_code, key_events, physical_key_id, physical_key_source};
+use crate::input::{KeyId, Modifier, NamedKey};
+use evdev::{AttributeSet, KeyCode};
+
+#[test]
+fn shortcut_events_press_modifiers_before_the_target() {
+    assert_eq!(
+        key_events(key_code(KeyId::Physical(46)).unwrap(), &[Modifier::Ctrl]),
+        [
+            (KeyCode::KEY_LEFTCTRL, true),
+            (KeyCode::KEY_C, true),
+            (KeyCode::KEY_C, false),
+            (KeyCode::KEY_LEFTCTRL, false),
+        ]
+    );
+    assert_eq!(
+        key_events(key_code(KeyId::Named(NamedKey::Function(4))).unwrap(), &[Modifier::Alt]),
+        [
+            (KeyCode::KEY_LEFTALT, true),
+            (KeyCode::KEY_F4, true),
+            (KeyCode::KEY_F4, false),
+            (KeyCode::KEY_LEFTALT, false),
+        ]
+    );
+}
+
+#[test]
+fn physical_feedback_requires_a_keyboard_not_just_any_input_device() {
+    let mut keys = AttributeSet::new();
+    keys.insert(KeyCode::BTN_LEFT);
+    assert!(!is_physical_keyboard(Some("Mouse"), Some(&keys)));
+    assert!(!is_physical_keyboard(Some("Keyboard"), None));
+
+    keys.insert(KeyCode::KEY_A);
+    assert!(is_physical_keyboard(Some("Keyboard"), Some(&keys)));
+    assert!(!is_physical_keyboard(
+        Some("FlyBoard Virtual Keyboard"),
+        Some(&keys)
+    ));
+}
 
 #[test]
 fn resolves_accent_positions_without_colliding() {

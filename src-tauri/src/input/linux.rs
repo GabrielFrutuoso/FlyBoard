@@ -1,6 +1,6 @@
 use super::{KeyId, Modifier, NamedKey};
 
-use evdev::{uinput::VirtualDevice, AttributeSet, Device, EventSummary, EventType, InputEvent, KeyCode, LedCode};
+use evdev::{uinput::VirtualDevice, AttributeSet, AttributeSetRef, Device, EventSummary, EventType, InputEvent, KeyCode, LedCode};
 use std::{
     fs::OpenOptions,
     io::ErrorKind,
@@ -9,12 +9,15 @@ use std::{
         Mutex, OnceLock,
     },
     thread,
+    time::Duration,
 };
 
 use super::InputStatus;
 use tauri::{AppHandle, Emitter};
 
 static VIRTUAL_KEYBOARD: OnceLock<Mutex<VirtualDevice>> = OnceLock::new();
+static VIRTUAL_KEYBOARD_INIT: Mutex<()> = Mutex::new(());
+static PHYSICAL_KEYBOARD_ERROR: OnceLock<String> = OnceLock::new();
 /// Mirrors the real caps lock LED, since evdev has no synchronous "query the lock" call.
 static CAPS_LOCK: AtomicBool = AtomicBool::new(false);
 
@@ -106,7 +109,7 @@ fn listen_to_keyboard(mut device: Device, app: AppHandle, device_path: String) {
 pub fn install_hook(app: AppHandle) -> Result<(), String> {
     let mut installed = 0;
     for (device_path, device) in evdev::enumerate() {
-        if device.name() == Some("FlyBoard Virtual Keyboard") || device.supported_keys().is_none() {
+        if !is_physical_keyboard(device.name(), device.supported_keys()) {
             continue;
         }
         if let Ok(leds) = device.get_led_state() {
@@ -121,9 +124,16 @@ pub fn install_hook(app: AppHandle) -> Result<(), String> {
     }
 
     if installed == 0 {
-        return Err("no readable physical keyboard devices found".into());
+        let error = "FlyBoard cannot read physical keyboards. Install the updated FlyBoard udev rule for /dev/input/event* keyboard devices, reload the rules, then restart FlyBoard. Physical key highlighting and held-modifier shortcuts are unavailable.".to_string();
+        let _ = PHYSICAL_KEYBOARD_ERROR.set(error.clone());
+        return Err(error);
     }
     Ok(())
+}
+
+fn is_physical_keyboard(name: Option<&str>, keys: Option<&AttributeSetRef<KeyCode>>) -> bool {
+    name != Some("FlyBoard Virtual Keyboard")
+        && keys.is_some_and(|keys| keys.contains(KeyCode::KEY_A))
 }
 
 pub fn caps_lock_on() -> bool {
@@ -131,6 +141,14 @@ pub fn caps_lock_on() -> bool {
 }
 
 pub fn status() -> InputStatus {
+    let mut status = output_status();
+    if status.ready {
+        status.message = PHYSICAL_KEYBOARD_ERROR.get().cloned();
+    }
+    status
+}
+
+fn output_status() -> InputStatus {
     match OpenOptions::new().read(true).write(true).open("/dev/uinput") {
         Ok(_) => InputStatus {
             ready: true,
@@ -249,7 +267,14 @@ fn key_code(key: KeyId) -> Result<(KeyCode, bool), String> {
             NamedKey::Delete => (KeyCode::KEY_DELETE, false),
             NamedKey::Home => (KeyCode::KEY_HOME, false),
             NamedKey::End => (KeyCode::KEY_END, false),
-            NamedKey::Function(n) => (KeyCode(KeyCode::KEY_F1.0 + u16::from(n - 1)), false),
+            NamedKey::Function(n) => (
+                if n <= 10 {
+                    KeyCode(KeyCode::KEY_F1.0 + u16::from(n - 1))
+                } else {
+                    KeyCode(KeyCode::KEY_F11.0 + u16::from(n - 11))
+                },
+                false,
+            ),
         },
         KeyId::Modifier(modifier) => (modifier_key(modifier), false),
     };
@@ -257,6 +282,13 @@ fn key_code(key: KeyId) -> Result<(KeyCode, bool), String> {
 }
 
 fn virtual_keyboard() -> Result<&'static Mutex<VirtualDevice>, String> {
+    if let Some(keyboard) = VIRTUAL_KEYBOARD.get() {
+        return Ok(keyboard);
+    }
+
+    let _init = VIRTUAL_KEYBOARD_INIT
+        .lock()
+        .map_err(|_| "FlyBoard's virtual keyboard initialization lock is unavailable.".to_string())?;
     if let Some(keyboard) = VIRTUAL_KEYBOARD.get() {
         return Ok(keyboard);
     }
@@ -280,7 +312,12 @@ fn virtual_keyboard() -> Result<&'static Mutex<VirtualDevice>, String> {
         .and_then(|builder| builder.build())
         .map_err(|error| format!("Cannot create FlyBoard's virtual keyboard. Grant this user read/write access to /dev/uinput: {error}"))?;
 
+    thread::sleep(Duration::from_secs(1));
     Ok(VIRTUAL_KEYBOARD.get_or_init(|| Mutex::new(keyboard)))
+}
+
+pub fn prepare_virtual_keyboard() -> Result<(), String> {
+    virtual_keyboard().map(|_| ())
 }
 
 fn press(keyboard: &mut VirtualDevice, key: KeyCode) -> Result<(), String> {
@@ -365,8 +402,7 @@ fn send_unicode_text(text: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Sends a key with modifiers and attempts to release held keys if an event fails.
-fn send_resolved(key: (KeyCode, bool), modifiers: &[Modifier]) -> Result<(), String> {
+fn key_events(key: (KeyCode, bool), modifiers: &[Modifier]) -> Vec<(KeyCode, bool)> {
     let (target, needs_shift) = key;
     let mut active_modifiers = modifiers.to_vec();
 
@@ -374,12 +410,6 @@ fn send_resolved(key: (KeyCode, bool), modifiers: &[Modifier]) -> Result<(), Str
     if needs_shift && !active_modifiers.contains(&Modifier::Shift) {
         active_modifiers.push(Modifier::Shift);
     }
-
-    let mut keyboard = virtual_keyboard().and_then(|keyboard| {
-        keyboard
-            .lock()
-            .map_err(|_| "FlyBoard's virtual keyboard lock is unavailable.".into())
-    })?;
 
     let mut events = Vec::new();
     for modifier in &active_modifiers {
@@ -394,7 +424,18 @@ fn send_resolved(key: (KeyCode, bool), modifiers: &[Modifier]) -> Result<(), Str
         events.push((modifier_key(*modifier), false));
     }
 
-    super::key_sequence::run(events, |key, down| {
+    events
+}
+
+/// Sends a key with modifiers and attempts to release held keys if an event fails.
+fn send_resolved(key: (KeyCode, bool), modifiers: &[Modifier]) -> Result<(), String> {
+    let mut keyboard = virtual_keyboard().and_then(|keyboard| {
+        keyboard
+            .lock()
+            .map_err(|_| "FlyBoard's virtual keyboard lock is unavailable.".into())
+    })?;
+
+    super::key_sequence::run(key_events(key, modifiers), |key, down| {
         emit_key_event(&mut keyboard, key, down)
     })
 }

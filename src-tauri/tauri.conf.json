@@ -46,12 +46,12 @@
     "active": true,
     "targets": "all",
     "resources": [
-      "resources/60-flyboard-uinput.rules"
+      "resources/70-flyboard-input.rules"
     ],
     "linux": {
       "deb": {
         "files": {
-          "/usr/lib/udev/rules.d/60-flyboard-uinput.rules": "resources/60-flyboard-uinput.rules"
+          "/usr/lib/udev/rules.d/70-flyboard-input.rules": "resources/70-flyboard-input.rules"
         },
         "postInstallScript": "resources/postinst"
       }
