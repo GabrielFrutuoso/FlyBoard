@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { type MouseEvent, type ReactNode, useEffect, useRef } from "react";
 import { getMacroIcon, type MacroIconId } from "../utils/macroIcons";
+import { getKeyDisplayLabel } from "../keys";
 import {
   DEFAULT_KEY_LABEL_SIZE,
   DEFAULT_KEY_RADIUS,
@@ -133,6 +134,7 @@ export const Key = ({
   const repeatDelay = useRef<ReturnType<typeof setTimeout> | null>(null);
   const repeatInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const suppressPointerClick = useRef(false);
+  const displayLabel = getKeyDisplayLabel(label);
 
   const clearRepeat = () => {
     if (repeatDelay.current !== null) clearTimeout(repeatDelay.current);
@@ -145,7 +147,7 @@ export const Key = ({
 
   const keyGapSize = Math.min(MAX_KEY_GAP, Math.max(0, keyGap));
   const MacroIcon = getMacroIcon(macroIcon);
-  const icon = MacroIcon ? <MacroIcon size={ICON_SIZE} /> : getKeyIcon(label);
+  const icon = MacroIcon ? <MacroIcon size={ICON_SIZE} /> : getKeyIcon(displayLabel);
   const buttonStyles = getButtonStyles(
     isPressed,
     isActive,
@@ -223,8 +225,8 @@ export const Key = ({
         }
         onClick(event);
       }}
-      title={macroName ?? label}
-      aria-label={macroName ?? label}
+      title={macroName ?? displayLabel}
+      aria-label={macroName ?? displayLabel}
     >
       {showHoverHighlight && (
         <span
@@ -236,7 +238,7 @@ export const Key = ({
           }`}
         />
       )}
-      <span className="relative z-10">{icon ?? label}</span>
+      <span className="relative z-10">{icon ?? displayLabel}</span>
     </Button>
   );
 };
