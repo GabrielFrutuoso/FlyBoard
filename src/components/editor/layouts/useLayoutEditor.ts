@@ -13,6 +13,7 @@ import {
   type KeyStyle,
 } from "../../../utils/boardConfig";
 import type { PaletteMode, SelectedKey, SelectedKeys } from "./types";
+import { getKeyDisplayLabel } from "../../../keys";
 
 export function useLayoutEditor(
   boards: BoardsFile,
@@ -37,7 +38,7 @@ export function useLayoutEditor(
   const labelFor = (key: string) => {
     const macroId = parseMacroKey(key);
     if (macroId !== null) return `⚡ ${macrosById.get(macroId)?.name ?? "?"}`;
-    return key;
+    return getKeyDisplayLabel(key);
   };
 
   const sizeFor = (rowIndex: number, keyIndex: number): KeySize =>

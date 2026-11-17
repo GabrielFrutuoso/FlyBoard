@@ -7,6 +7,7 @@ import {
   PALETTE_NAMED_KEYS,
   type Macro,
 } from "../../utils/boardConfig";
+import { getKeyDisplayLabel } from "../../keys";
 
 interface KeyPaletteProps {
   macros?: Macro[];
@@ -94,7 +95,10 @@ export function KeyPalette({ macros = [], onPick }: KeyPaletteProps) {
     {
       id: "modifiers",
       title: "Modifiers",
-      items: PALETTE_MODIFIERS.map((key) => ({ key, label: key })),
+      items: PALETTE_MODIFIERS.map((key) => ({
+        key,
+        label: getKeyDisplayLabel(key),
+      })),
     },
     {
       id: "macros",

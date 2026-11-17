@@ -33,6 +33,9 @@ export const composeAccent = (accent: AccentKey, text: string) => {
 export const MODIFIERS = ["Shift", "Ctrl", "Alt", "AltGr", "Win"] as const;
 export type Modifier = (typeof MODIFIERS)[number];
 
+export const getKeyDisplayLabel = (key: string) =>
+  key === "Win" && navigator.platform.startsWith("Linux") ? "Super" : key;
+
 export const FUNCTION_KEYS = Array.from({ length: 12 }, (_, i) => `F${i + 1}`);
 
 export const NAMED_KEYS: readonly string[] = [
