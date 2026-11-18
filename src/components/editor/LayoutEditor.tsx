@@ -1,4 +1,4 @@
-import { Minus, Save, X } from "lucide-react";
+import { Keyboard, Minus, Save, Sparkles, X, Zap } from "lucide-react";
 import { useEffect } from "react";
 import { HashRouter, NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { Button } from "../ui/button";
@@ -8,13 +8,25 @@ import { useBoardDocument } from "./hooks/useBoardDocument";
 import { useEditorWindow } from "./hooks/useEditorWindow";
 
 const TABS = [
-  { path: "layouts", label: "layouts" },
-  { path: "macros", label: "macros" },
+  {
+    path: "layouts",
+    label: "Layouts",
+    description: "Arrange and style keys",
+    icon: Keyboard,
+  },
+  {
+    path: "macros",
+    label: "Macros",
+    description: "Build reusable actions",
+    icon: Zap,
+  },
 ] as const;
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `cursor-pointer rounded-sm px-2 py-1 text-xs capitalize ${
-    isActive ? "bg-zinc-700 text-zinc-100" : "text-zinc-400 hover:bg-zinc-800"
+  `group flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 transition ${
+    isActive
+      ? "bg-white/10 text-white shadow-sm ring-1 ring-white/10"
+      : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
   }`;
 
 const LayoutEditor = () => {
@@ -40,35 +52,59 @@ const LayoutEditor = () => {
 
   return (
     <HashRouter>
-      <main className="flex h-screen w-screen flex-col bg-zinc-950 text-zinc-200">
-        <header className="flex shrink-0 select-none items-center gap-2 border-b border-zinc-800 pl-2">
-          <h1
+      <main className="editor-shell flex h-screen w-screen flex-col overflow-hidden text-zinc-100">
+        <header className="editor-titlebar flex h-16 shrink-0 select-none items-center border-b border-white/7 px-4">
+          <div
             data-tauri-drag-region
-            className="text-xs font-semibold text-zinc-300"
+            className="flex min-w-48 items-center gap-3"
           >
-            FlyBoard — Layout Editor
-          </h1>
-          <nav className="ml-2 flex gap-1">
-            {TABS.map(({ path, label }) => (
+            <div className="flex size-9 items-center justify-center rounded-xl bg-sky-400 text-zinc-950 shadow-[0_8px_30px_rgb(56_189_248/20%)]">
+              <Sparkles size={17} strokeWidth={2.4} />
+            </div>
+            <div>
+              <h1 className="text-sm font-semibold tracking-tight">
+                Layout Editor
+              </h1>
+              <p className="text-[10px] text-zinc-500">
+                Make your keyboard feel like yours
+              </p>
+            </div>
+          </div>
+          <nav className="ml-6 flex items-center gap-1.5">
+            {TABS.map(({ path, label, description, icon: Icon }) => (
               <NavLink key={path} to={`/${path}`} className={navLinkClass}>
-                {label}
+                <Icon
+                  size={16}
+                  className="text-sky-300/80 group-[.active]:text-sky-300"
+                />
+                <span>
+                  <span className="block text-xs font-medium">{label}</span>
+                  <span className="hidden text-[9px] text-zinc-500 xl:block">
+                    {description}
+                  </span>
+                </span>
               </NavLink>
             ))}
           </nav>
           <div
             data-tauri-drag-region
-            className="h-7 min-w-4 flex-1 self-stretch"
+            className="h-full min-w-4 flex-1 self-stretch"
             aria-hidden="true"
           />
-          <div className="ml-auto flex items-center gap-1 pr-1">
+          <div className="ml-auto flex items-center gap-2">
             {(dirty || saving) && (
               <span
-                className={`mr-1 text-[10px] ${
-                  dirty ? "text-amber-300" : "text-zinc-400"
+                className={`hidden items-center gap-1.5 text-[11px] sm:flex ${
+                  dirty ? "text-amber-200" : "text-zinc-400"
                 }`}
                 role="status"
                 aria-live="polite"
               >
+                <span
+                  className={`size-1.5 rounded-full ${
+                    saving ? "animate-pulse bg-sky-300" : "bg-amber-300"
+                  }`}
+                />
                 {saving ? "Saving…" : "Unsaved changes"}
               </span>
             )}
@@ -85,17 +121,17 @@ const LayoutEditor = () => {
               size="sm"
               onClick={save}
               disabled={saving || !dirty}
-              className="h-auto cursor-pointer gap-1 px-2 py-1 text-xs disabled:opacity-40"
+              className="h-8 cursor-pointer gap-1.5 rounded-lg bg-sky-300 px-3 text-xs font-semibold text-zinc-950 shadow-sm hover:bg-sky-200 disabled:bg-white/6 disabled:text-zinc-500"
               title="Save changes (Ctrl/⌘+S)"
             >
-              <Save size={12} />
+              <Save size={14} />
               {saving ? "Saving…" : dirty ? "Save" : "Saved"}
             </Button>
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="h-auto w-auto cursor-pointer rounded-sm p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+              className="h-8 w-8 cursor-pointer rounded-lg p-0 text-zinc-500 hover:bg-white/6 hover:text-zinc-100"
               onClick={() => appWindow.minimize()}
               aria-label="Minimize"
             >
@@ -105,7 +141,7 @@ const LayoutEditor = () => {
               type="button"
               variant="ghost"
               size="icon"
-              className="h-auto w-auto cursor-pointer rounded-sm p-1 text-zinc-400 hover:bg-red-600 hover:text-white"
+              className="h-8 w-8 cursor-pointer rounded-lg p-0 text-zinc-500 hover:bg-red-500/90 hover:text-white"
               onClick={() => appWindow.close()}
               aria-label="Close"
             >
@@ -128,7 +164,10 @@ const LayoutEditor = () => {
               <Route path="*" element={<Navigate to="/layouts" replace />} />
             </Routes>
           ) : (
-            <p className="p-4 text-xs text-zinc-500">Loading…</p>
+            <div className="flex flex-1 items-center justify-center gap-3 text-sm text-zinc-400">
+              <span className="size-4 animate-spin rounded-full border-2 border-zinc-700 border-t-sky-300" />
+              Opening your workspace…
+            </div>
           )}
         </div>
       </main>
