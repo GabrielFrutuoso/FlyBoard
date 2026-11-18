@@ -44,14 +44,17 @@ export function SurfaceControls({
   return (
     <details className="relative shrink-0">
       <summary
-        className="flex cursor-pointer list-none items-center gap-1 rounded-sm border border-zinc-700 bg-zinc-900 px-2 py-1 text-[10px] text-zinc-200 hover:bg-zinc-800 [&::-webkit-details-marker]:hidden"
+        className="flex cursor-pointer list-none items-center gap-2 rounded-lg border border-white/7 bg-white/3 px-2.5 py-2 text-[10px] text-zinc-300 transition hover:border-white/10 hover:bg-white/5 [&::-webkit-details-marker]:hidden"
         aria-label={`${title} settings, ${appearanceLabel(appearance)}`}
       >
         <SlidersHorizontal size={12} />
-        {title}: {appearanceLabel(appearance)}
+        <span className="min-w-0 flex-1 truncate">{title}</span>
+        <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[9px] text-zinc-400">
+          {appearanceLabel(appearance)}
+        </span>
         <ChevronDown size={12} />
       </summary>
-      <div className="absolute left-0 top-full z-50 mt-1 w-72 rounded-md border border-zinc-700 bg-zinc-900 p-3 text-zinc-200 shadow-xl">
+      <div className="absolute right-0 top-full z-50 mt-1 w-72 rounded-xl border border-white/10 bg-zinc-950/95 p-3 text-zinc-200 shadow-2xl backdrop-blur-xl">
         <div className="flex flex-col gap-3">
           <div>
             <p className="mb-1.5 text-[10px] font-medium text-zinc-400">
@@ -70,8 +73,8 @@ export function SurfaceControls({
                   onClick={() => onAppearanceChange(choice.value)}
                   className={`flex-1 rounded-sm border px-2 py-1 text-[10px] transition-colors ${
                     appearance === choice.value
-                      ? "border-sky-500 bg-sky-950 text-sky-100"
-                      : "border-zinc-700 bg-zinc-950 text-zinc-400 hover:bg-zinc-800"
+                      ? "border-sky-300/40 bg-sky-300/10 text-sky-100"
+                      : "border-white/7 bg-black/15 text-zinc-400 hover:bg-white/5"
                   }`}
                 >
                   {choice.label}
@@ -96,7 +99,7 @@ export function SurfaceControls({
               onChange={(event) =>
                 onTransparencyChange(Number(event.target.value))
               }
-              className="w-full accent-sky-500"
+              className="w-full accent-sky-300"
               aria-label={`${title} transparency`}
             />
             <span className="text-[9px] text-zinc-500">
