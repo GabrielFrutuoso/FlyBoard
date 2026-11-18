@@ -15,9 +15,9 @@ interface KeyPaletteProps {
 }
 
 const sectionTitle =
-  "mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500";
+  "mb-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-zinc-600";
 const chip =
-  "flex h-8 min-w-0 cursor-grab items-center justify-center rounded-sm border border-zinc-700 bg-zinc-900 px-2 text-[10px] text-zinc-200 shadow-[inset_0_1px_0_rgb(255_255_255/4%)] transition-colors hover:border-zinc-500 hover:bg-zinc-800 active:cursor-grabbing";
+  "flex h-8 min-w-0 cursor-grab items-center justify-center rounded-lg border border-white/8 bg-white/4 px-2 text-[10px] text-zinc-300 shadow-[inset_0_1px_0_rgb(255_255_255/4%)] transition hover:border-sky-300/30 hover:bg-sky-300/7 hover:text-zinc-100 active:cursor-grabbing";
 
 function PaletteSection({
   title,
@@ -131,18 +131,18 @@ export function KeyPalette({ macros = [], onPick }: KeyPaletteProps) {
   ];
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2">
-      <div className="flex min-w-0 shrink-0 items-center gap-2">
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <div className="flex min-w-0 shrink-0 items-center gap-2.5">
         <input
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search keys"
           aria-label="Search keys"
-          className="w-52 max-w-[30%] min-w-36 rounded-sm border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-500 outline-none focus:border-sky-600"
+          className="editor-input w-56 max-w-[35%] min-w-36"
         />
         <div
-          className="flex min-w-0 items-center gap-0.5 overflow-x-auto rounded-sm border border-zinc-800 bg-zinc-900/70 p-0.5"
+          className="flex min-w-0 items-center gap-0.5 overflow-x-auto rounded-lg border border-white/7 bg-black/15 p-1"
           role="group"
           aria-label="Key category"
         >
@@ -152,10 +152,10 @@ export function KeyPalette({ macros = [], onPick }: KeyPaletteProps) {
               type="button"
               aria-pressed={category === id}
               onClick={() => setCategory(id)}
-              className={`shrink-0 rounded-sm px-2 py-1 text-[10px] transition-colors ${
+              className={`shrink-0 rounded-md px-2.5 py-1.5 text-[10px] transition ${
                 category === id
-                  ? "bg-sky-900/70 text-sky-100 shadow-sm"
-                  : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                  ? "bg-white/10 text-zinc-100 shadow-sm"
+                  : "text-zinc-500 hover:bg-white/4 hover:text-zinc-200"
               }`}
             >
               {label}
@@ -172,7 +172,7 @@ export function KeyPalette({ macros = [], onPick }: KeyPaletteProps) {
                   key,
                   label,
                   section.id === "macros"
-                    ? `${chip} border-amber-700 bg-amber-950 text-amber-100 hover:bg-amber-900`
+                    ? `${chip} border-amber-300/15 bg-amber-300/6 text-amber-100 hover:border-amber-300/30 hover:bg-amber-300/10`
                     : chip,
                 ),
               )}

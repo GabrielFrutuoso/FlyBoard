@@ -21,6 +21,7 @@ export interface BoardLayout {
   keyGap?: number;
   keyRadius?: number;
   keyLabelSize?: number;
+  keyboardPadding?: number;
   keySizes?: (KeySize | null)[][];
   keyStyles?: (KeyStyle | null)[][];
   builtin?: boolean;
@@ -40,8 +41,13 @@ export interface KeySize {
 }
 
 export interface KeyStyle {
+  customLabel?: string;
   labelColor?: string;
+  labelSize?: number;
+  labelWeight?: number;
+  radius?: number;
   borderColor?: string;
+  borderWidth?: number;
   borderTransparency?: number;
   backgroundColor?: string;
   appearance?: LayoutAppearance;
@@ -53,9 +59,17 @@ export const DEFAULT_KEY_GAP = 2;
 export const MAX_KEY_GAP = 4;
 export const DEFAULT_KEY_RADIUS = 2;
 export const DEFAULT_KEY_LABEL_SIZE = 12;
+export const DEFAULT_KEYBOARD_PADDING = 2;
 
 export const normalizeKeyGap = (value: number | undefined) =>
   Math.min(MAX_KEY_GAP, Math.max(0, Math.round(value ?? DEFAULT_KEY_GAP)));
+
+export const clampInteger = (
+  value: number | undefined,
+  fallback: number,
+  min: number,
+  max: number,
+) => Math.min(max, Math.max(min, Math.round(value ?? fallback)));
 
 const normalizePercentage = (value: number | undefined, fallback: number) =>
   Math.min(100, Math.max(1, Math.round(value ?? fallback)));

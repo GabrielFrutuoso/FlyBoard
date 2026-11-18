@@ -1,4 +1,9 @@
-import { type HTMLAttributes, type ReactNode, type Ref } from "react";
+import {
+  type CSSProperties,
+  type HTMLAttributes,
+  type ReactNode,
+  type Ref,
+} from "react";
 import { type KeySize } from "../utils/boardConfig";
 
 interface KeyboardRowProps {
@@ -93,6 +98,7 @@ interface KeyboardGridProps extends Omit<
 > {
   rows: string[][];
   className?: string;
+  style?: CSSProperties;
   preserveProportions?: boolean;
   getRowProps?: (
     rowIndex: number,
@@ -115,6 +121,7 @@ export const KeyboardGrid = ({
   keyGap = 2,
   preserveProportions = false,
   className = "flex min-h-0 w-full flex-1 flex-col gap-1",
+  style,
 }: KeyboardGridProps) => {
   const totalColumns = preserveProportions
     ? Math.max(
@@ -127,7 +134,7 @@ export const KeyboardGrid = ({
     : undefined;
 
   return (
-    <div className={className} style={{ gap: `${keyGap}px` }}>
+    <div className={className} style={{ ...style, gap: `${keyGap}px` }}>
       {rows.map((row, rowIndex) => {
         const content = (
           <KeyboardRow

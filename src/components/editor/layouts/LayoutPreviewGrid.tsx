@@ -1,7 +1,9 @@
 import {
   parseMacroKey,
+  DEFAULT_KEYBOARD_PADDING,
   DEFAULT_KEY_LABEL_SIZE,
   DEFAULT_KEY_RADIUS,
+  clampInteger,
   layoutAppearance,
   normalizeKeyGap,
   layoutSurfaceStyle,
@@ -107,7 +109,15 @@ export function LayoutPreviewGrid({
         keySizeFor={sizeFor}
         keyGap={normalizeKeyGap(layout.keyGap)}
         preserveProportions
-        className="flex min-h-0 w-full flex-1 flex-col gap-0.5 p-0.5 text-[clamp(0.625rem,2.2vh,1rem)]"
+        className="flex min-h-0 w-full flex-1 flex-col gap-0.5 text-[clamp(0.625rem,2.2vh,1rem)]"
+        style={{
+          padding: `${clampInteger(
+            layout.keyboardPadding,
+            DEFAULT_KEYBOARD_PADDING,
+            0,
+            24,
+          )}px`,
+        }}
         getRowProps={(rowIndex) => ({
           onClick: () => onSelectRow(rowIndex),
         })}
@@ -140,6 +150,7 @@ export function LayoutPreviewGrid({
             <Key
               key={`${key}-${rowIndex}-${keyIndex}`}
               label={labelFor(key)}
+              labelOverride={keyStyle.customLabel}
               macroIcon={
                 macroId === null ? undefined : macrosById.get(macroId)?.icon
               }
@@ -149,12 +160,20 @@ export function LayoutPreviewGrid({
               size={keySize}
               span={span}
               labelColor={keyStyle.labelColor}
+              labelWeight={keyStyle.labelWeight}
               borderColor={keyStyle.borderColor}
+              borderWidth={keyStyle.borderWidth}
               borderTransparency={keyStyle.borderTransparency}
               backgroundColor={keyStyle.backgroundColor}
-              keyRadius={layout.keyRadius ?? DEFAULT_KEY_RADIUS}
+              keyRadius={
+                keyStyle.radius ?? layout.keyRadius ?? DEFAULT_KEY_RADIUS
+              }
               keyGap={keyGap}
-              keyLabelSize={layout.keyLabelSize ?? DEFAULT_KEY_LABEL_SIZE}
+              keyLabelSize={
+                keyStyle.labelSize ??
+                layout.keyLabelSize ??
+                DEFAULT_KEY_LABEL_SIZE
+              }
               appearance={keyStyle.appearance ?? layoutAppearance(layout)}
               transparency={keyStyle.transparency ?? layout.transparency}
               className={

@@ -12,9 +12,19 @@ struct KeySize {
 #[serde(rename_all = "camelCase")]
 struct KeyStyle {
     #[serde(default)]
+    custom_label: Option<String>,
+    #[serde(default)]
     label_color: Option<String>,
     #[serde(default)]
+    label_size: Option<u8>,
+    #[serde(default)]
+    label_weight: Option<u16>,
+    #[serde(default)]
+    radius: Option<u8>,
+    #[serde(default)]
     border_color: Option<String>,
+    #[serde(default)]
+    border_width: Option<u8>,
     #[serde(default)]
     border_transparency: Option<u8>,
     #[serde(default)]
@@ -44,6 +54,8 @@ struct BoardLayout {
     key_radius: Option<u8>,
     #[serde(default)]
     key_label_size: Option<u8>,
+    #[serde(default)]
+    keyboard_padding: Option<u8>,
     #[serde(default)]
     key_sizes: Option<Vec<Vec<Option<KeySize>>>>,
     #[serde(default)]
@@ -150,10 +162,16 @@ mod tests {
                 "keyGap": 6,
                 "keyRadius": 8,
                 "keyLabelSize": 15,
+                "keyboardPadding": 6,
                 "glassIntensity": 31,
                 "keyStyles": [[{
+                    "customLabel": "Launch",
                     "appearance": "transparent",
                     "transparency": 88,
+                    "labelSize": 18,
+                    "labelWeight": 700,
+                    "radius": 10,
+                    "borderWidth": 2,
                     "borderTransparency": 37,
                     "glassIntensity": 42
                 }]]
@@ -169,8 +187,14 @@ mod tests {
         assert_eq!(layout["keyGap"], 6);
         assert_eq!(layout["keyRadius"], 8);
         assert_eq!(layout["keyLabelSize"], 15);
+        assert_eq!(layout["keyboardPadding"], 6);
+        assert_eq!(key["customLabel"], "Launch");
         assert_eq!(key["appearance"], "transparent");
         assert_eq!(key["transparency"], 88);
+        assert_eq!(key["labelSize"], 18);
+        assert_eq!(key["labelWeight"], 700);
+        assert_eq!(key["radius"], 10);
+        assert_eq!(key["borderWidth"], 2);
         assert_eq!(key["borderTransparency"], 37);
         assert!(layout.get("glassIntensity").is_none());
         assert!(key.get("glassIntensity").is_none());

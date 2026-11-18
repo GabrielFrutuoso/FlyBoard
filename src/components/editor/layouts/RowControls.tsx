@@ -21,7 +21,7 @@ export function RowControls({
         size="sm"
         variant="ghost"
         onClick={onAddRow}
-        className="mt-1 h-auto w-fit cursor-pointer gap-1 px-2 py-1 text-xs text-zinc-300"
+        className="editor-secondary-button h-auto w-fit cursor-pointer gap-1.5"
       >
         <Plus size={12} /> Add row
       </Button>
@@ -29,13 +29,13 @@ export function RowControls({
   }
 
   return (
-    <div className="mt-1 flex items-center gap-1">
+    <div className="flex items-center gap-2">
       <Button
         type="button"
         size="sm"
         variant="ghost"
         onClick={onAddRow}
-        className="mt-1 h-auto w-fit cursor-pointer gap-1 px-2 py-1 text-xs text-zinc-300"
+        className="editor-secondary-button h-auto w-fit cursor-pointer gap-1.5"
       >
         <Plus size={12} /> Add row
       </Button>
@@ -44,7 +44,7 @@ export function RowControls({
         size="sm"
         variant="ghost"
         onClick={() => onRemoveRow(selectedRow)}
-        className="h-auto w-fit cursor-pointer gap-1 px-2 py-1 text-xs text-red-400 hover:text-red-200"
+        className="editor-secondary-button h-auto w-fit cursor-pointer gap-1.5 text-red-300 hover:text-red-200"
       >
         <Trash2 size={12} /> Remove row {selectedRow + 1}
       </Button>

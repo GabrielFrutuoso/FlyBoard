@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import {
   DEFAULT_KEY_LABEL_SIZE,
   DEFAULT_KEY_RADIUS,
+  DEFAULT_KEYBOARD_PADDING,
   layoutAppearance,
   normalizeKeyGap,
   surfaceTransparency,
@@ -57,6 +58,7 @@ const LayoutsTab = ({ boards, onChange }: LayoutsTabProps) => {
     setKeyGap,
     setKeyRadius,
     setKeyLabelSize,
+    setKeyboardPadding,
     clearKeySelection,
     selectAllKeys,
     insertKeyAt,
@@ -201,7 +203,7 @@ const LayoutsTab = ({ boards, onChange }: LayoutsTabProps) => {
                 minSize="150px"
                 maxSize="30%"
               >
-                <aside className="flex h-full min-h-0 min-w-0 flex-col">
+                <aside className="flex h-full min-h-0 min-w-0 flex-col bg-zinc-950/35">
                   <LayoutSidebar
                     layouts={layouts}
                     selectedId={selected.id}
@@ -216,7 +218,7 @@ const LayoutsTab = ({ boards, onChange }: LayoutsTabProps) => {
               </ResizablePanel>
               <ResizableHandle
                 withHandle
-                className="bg-zinc-800 hover:bg-sky-600"
+                className="editor-resize-handle"
                 aria-label="Resize layout list"
               />
               <ResizablePanel
@@ -236,9 +238,9 @@ const LayoutsTab = ({ boards, onChange }: LayoutsTabProps) => {
                     onDelete={deleteLayout}
                   />
 
-                  <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto bg-zinc-950 p-3">
+                  <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto bg-black/10 p-4">
                     <div
-                      className="keyboard-preview-stage"
+                      className="keyboard-preview-stage editor-workspace-card"
                       data-appearance={layoutAppearance(selected)}
                     >
                       <div
@@ -274,7 +276,7 @@ const LayoutsTab = ({ boards, onChange }: LayoutsTabProps) => {
               </ResizablePanel>
               <ResizableHandle
                 withHandle
-                className="bg-zinc-800 hover:bg-sky-600"
+                className="editor-resize-handle"
                 aria-label="Resize key properties"
               />
               <ResizablePanel
@@ -283,10 +285,13 @@ const LayoutsTab = ({ boards, onChange }: LayoutsTabProps) => {
                 minSize="160px"
                 maxSize="34%"
               >
-                <aside className="flex h-full min-h-0 min-w-0 flex-col bg-zinc-950">
-                  <h2 className="shrink-0 border-b border-zinc-800 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
-                    Key properties
-                  </h2>
+                <aside className="flex h-full min-h-0 min-w-0 flex-col bg-zinc-950/30">
+                  <div className="shrink-0 border-b border-white/7 px-4 py-3">
+                    <p className="editor-eyebrow">Inspector</p>
+                    <h2 className="mt-1 text-xs font-semibold text-zinc-200">
+                      Key properties
+                    </h2>
+                  </div>
                   {editable ? (
                     <KeySizeToolbar
                       label={selectedKeyLabel}
@@ -297,14 +302,22 @@ const LayoutsTab = ({ boards, onChange }: LayoutsTabProps) => {
                       widthDraft={widthDraft}
                       heightDraft={heightDraft}
                       labelColor={selectedKeyStyle.labelColor ?? ""}
+                      customLabel={selectedKeyStyle.customLabel ?? ""}
+                      labelWeight={selectedKeyStyle.labelWeight ?? 500}
                       borderColor={selectedKeyStyle.borderColor ?? ""}
+                      borderWidth={selectedKeyStyle.borderWidth ?? 1}
                       borderTransparency={
                         selectedKeyStyle.borderTransparency ?? 0
                       }
                       keyGap={normalizeKeyGap(selected.keyGap)}
-                      keyRadius={selected.keyRadius ?? DEFAULT_KEY_RADIUS}
+                      layoutKeyRadius={
+                        selected.keyRadius ?? DEFAULT_KEY_RADIUS
+                      }
                       keyLabelSize={
                         selected.keyLabelSize ?? DEFAULT_KEY_LABEL_SIZE
+                      }
+                      keyboardPadding={
+                        selected.keyboardPadding ?? DEFAULT_KEYBOARD_PADDING
                       }
                       backgroundColor={selectedKeyStyle.backgroundColor ?? ""}
                       onAppearanceChange={(value) =>
@@ -329,8 +342,19 @@ const LayoutsTab = ({ boards, onChange }: LayoutsTabProps) => {
                       onLabelColorChange={(value) =>
                         updateSelectedKeyStyle({ labelColor: value })
                       }
+                      onCustomLabelChange={(value) =>
+                        updateSelectedKeyStyle({
+                          customLabel: value.trim() ? value : undefined,
+                        })
+                      }
+                      onLabelWeightChange={(value) =>
+                        updateSelectedKeyStyle({ labelWeight: value })
+                      }
                       onBorderColorChange={(value) =>
                         updateSelectedKeyStyle({ borderColor: value })
+                      }
+                      onBorderWidthChange={(value) =>
+                        updateSelectedKeyStyle({ borderWidth: value })
                       }
                       onBorderTransparencyChange={(value) =>
                         updateSelectedKeyStyle({ borderTransparency: value })
@@ -338,6 +362,7 @@ const LayoutsTab = ({ boards, onChange }: LayoutsTabProps) => {
                       onKeyGapChange={setKeyGap}
                       onKeyRadiusChange={setKeyRadius}
                       onKeyLabelSizeChange={setKeyLabelSize}
+                      onKeyboardPaddingChange={setKeyboardPadding}
                       onBackgroundColorChange={(value) =>
                         updateSelectedKeyStyle({ backgroundColor: value })
                       }
@@ -347,7 +372,7 @@ const LayoutsTab = ({ boards, onChange }: LayoutsTabProps) => {
                       onSelectAll={selectAllKeys}
                     />
                   ) : (
-                    <p className="p-3 text-[10px] leading-relaxed text-zinc-500">
+                    <p className="p-4 text-[11px] leading-relaxed text-zinc-500">
                       Built-in layouts are read-only. Duplicate one to customize
                       its keys.
                     </p>
@@ -358,7 +383,7 @@ const LayoutsTab = ({ boards, onChange }: LayoutsTabProps) => {
           </ResizablePanel>
           <ResizableHandle
             withHandle
-            className="bg-zinc-800 hover:bg-sky-600"
+            className="editor-resize-handle"
             aria-label="Resize key library"
           />
           <ResizablePanel
@@ -375,9 +400,11 @@ const LayoutsTab = ({ boards, onChange }: LayoutsTabProps) => {
                 onPick={pickPaletteKey}
               />
             ) : (
-              <p className="h-full px-3 py-2 text-[10px] text-zinc-500">
+              <div className="flex h-full items-center justify-center px-5 text-center text-[11px] text-zinc-500">
+                <span>
                 Duplicate this built-in layout to add or edit keys.
-              </p>
+                </span>
+              </div>
             )}
           </ResizablePanel>
         </ResizablePanelGroup>

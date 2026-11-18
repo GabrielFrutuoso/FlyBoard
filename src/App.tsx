@@ -8,8 +8,10 @@ import Header from "./components/TitleBar";
 import { isModifier } from "./keys";
 import {
   DEFAULT_KEY_GAP,
+  DEFAULT_KEYBOARD_PADDING,
   DEFAULT_KEY_LABEL_SIZE,
   DEFAULT_KEY_RADIUS,
+  clampInteger,
   layoutSurfaceStyle,
   parseMacroKey,
 } from "./utils/boardConfig";
@@ -39,6 +41,7 @@ function Keyboard() {
     keyGap,
     keyRadius,
     keyLabelSize,
+    keyboardPadding,
     unitFor,
     keySizeFor,
     styleFor,
@@ -147,21 +150,36 @@ function Keyboard() {
               }
               span={span}
               labelColor={keyStyle.labelColor}
+              labelWeight={keyStyle.labelWeight}
+              labelOverride={keyStyle.customLabel}
               borderColor={keyStyle.borderColor}
+              borderWidth={keyStyle.borderWidth}
               borderTransparency={keyStyle.borderTransparency}
               backgroundColor={keyStyle.backgroundColor}
-              keyRadius={keyRadius ?? DEFAULT_KEY_RADIUS}
+              keyRadius={
+                keyStyle.radius ?? keyRadius ?? DEFAULT_KEY_RADIUS
+              }
               keyGap={keyGapSize}
-              keyLabelSize={keyLabelSize ?? DEFAULT_KEY_LABEL_SIZE}
+              keyLabelSize={
+                keyStyle.labelSize ?? keyLabelSize ?? DEFAULT_KEY_LABEL_SIZE
+              }
               appearance={keyStyle.appearance ?? appearance}
               transparency={keyStyle.transparency ?? transparency}
               isActive={isLatched(key)}
-              isPressed={isPressed(effective)}
+              isPressed={isPressed(key) || isPressed(effective)}
               isAvailable={isAccentAvailable(effective)}
             />
           );
         }}
-        className="flex min-h-0 w-full flex-1 flex-col gap-0.5 p-0.5 text-[clamp(0.625rem,2.2vh,1rem)]"
+        className="flex min-h-0 w-full flex-1 flex-col gap-0.5 text-[clamp(0.625rem,2.2vh,1rem)]"
+        style={{
+          padding: `${clampInteger(
+            keyboardPadding,
+            DEFAULT_KEYBOARD_PADDING,
+            0,
+            24,
+          )}px`,
+        }}
       />
     </main>
   );

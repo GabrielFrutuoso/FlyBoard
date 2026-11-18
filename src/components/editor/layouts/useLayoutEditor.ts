@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import {
   allLayouts,
   BUILTIN_LAYOUTS,
+  DEFAULT_KEY_LABEL_SIZE,
+  DEFAULT_KEY_RADIUS,
+  DEFAULT_KEYBOARD_PADDING,
   DEFAULT_KEY_SIZE,
+  clampInteger,
   newId,
   normalizeKeyGap,
   parseMacroKey,
@@ -438,10 +442,32 @@ export function useLayoutEditor(
     updateCustom((layout) => ({ ...layout, keyGap: normalizeKeyGap(keyGap) }));
 
   const setKeyRadius = (keyRadius: number) =>
-    updateCustom((layout) => ({ ...layout, keyRadius }));
+    updateCustom((layout) => ({
+      ...layout,
+      keyRadius: clampInteger(keyRadius, DEFAULT_KEY_RADIUS, 0, 32),
+    }));
 
   const setKeyLabelSize = (keyLabelSize: number) =>
-    updateCustom((layout) => ({ ...layout, keyLabelSize }));
+    updateCustom((layout) => ({
+      ...layout,
+      keyLabelSize: clampInteger(
+        keyLabelSize,
+        DEFAULT_KEY_LABEL_SIZE,
+        8,
+        32,
+      ),
+    }));
+
+  const setKeyboardPadding = (keyboardPadding: number) =>
+    updateCustom((layout) => ({
+      ...layout,
+      keyboardPadding: clampInteger(
+        keyboardPadding,
+        DEFAULT_KEYBOARD_PADDING,
+        0,
+        24,
+      ),
+    }));
 
   const addRow = () =>
     updateCustom((layout) => ({
@@ -534,6 +560,10 @@ export function useLayoutEditor(
       keyStyles: selected.keyStyles?.map((row) =>
         row.map((style) => (style ? { ...style } : null)),
       ),
+      keyGap: selected.keyGap,
+      keyRadius: selected.keyRadius,
+      keyLabelSize: selected.keyLabelSize,
+      keyboardPadding: selected.keyboardPadding,
     };
     onChange({ ...boards, layouts: [...boards.layouts, copy] });
     selectLayout(copy.id);
@@ -578,6 +608,7 @@ export function useLayoutEditor(
     setKeyGap,
     setKeyRadius,
     setKeyLabelSize,
+    setKeyboardPadding,
     insertKeyAt,
     pickPaletteKey,
     removeSelectedKey,
