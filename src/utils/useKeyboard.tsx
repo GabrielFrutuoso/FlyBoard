@@ -268,6 +268,7 @@ export function useKeyboard() {
     keyGap: normalizeKeyGap(activeLayout.keyGap),
     keyRadius: activeLayout.keyRadius,
     keyLabelSize: activeLayout.keyLabelSize,
+    keyboardPadding: activeLayout.keyboardPadding,
     keySizeFor: (rowIndex: number, keyIndex: number) =>
       activeLayout.keySizes?.[rowIndex]?.[keyIndex] ?? DEFAULT_KEY_SIZE,
     styleFor: (rowIndex: number, keyIndex: number): KeyStyle =>
