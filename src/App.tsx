@@ -1,13 +1,6 @@
 import "./App.css";
-import {
-  currentMonitor,
-  getCurrentWindow,
-  LogicalSize,
-  type PhysicalPosition,
-  type PhysicalSize,
-} from "@tauri-apps/api/window";
-import { moveWindow, Position } from "@tauri-apps/plugin-positioner";
-import { useEffect, useRef, useState } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useEffect } from "react";
 import LayoutEditor from "./components/editor/LayoutEditor";
 import { Key } from "./components/Key";
 import { KeyboardGrid } from "./components/KeyboardGrid";
@@ -21,18 +14,9 @@ import {
   parseMacroKey,
 } from "./utils/boardConfig";
 import { useKeyboard } from "./utils/useKeyboard";
+import { useKioskMode } from "./utils/useKioskMode";
 
 const windowLabel = getCurrentWindow().label;
-const appWindow = getCurrentWindow();
-const kioskHeightKey = "flyboard_kiosk_height";
-
-function saveKioskHeight(height: number) {
-  try {
-    localStorage.setItem(kioskHeightKey, String(height));
-  } catch (error) {
-    console.error("Could not save kiosk height", error);
-  }
-}
 
 function Keyboard() {
   const {
@@ -90,178 +74,16 @@ function Keyboard() {
     Math.ceil(32 + rows.length * 28 * maxRowHeight),
   );
 
-  const [isKiosk, setIsKiosk] = useState(false);
-  const [isTogglingKiosk, setIsTogglingKiosk] = useState(false);
-  const kioskMonitor = useRef<{
-    width: number;
-    height: number;
-    scaleFactor: number;
-  } | null>(null);
-  const isRestoringWindow = useRef(false);
-  const savedBounds = useRef<{
-    size: PhysicalSize;
-    position: PhysicalPosition;
-  } | null>(null);
-
-  useEffect(() => {
-    const configureWindow = async () => {
-      const monitor = kioskMonitor.current;
-      if (monitor) {
-        const height = (await appWindow.innerSize()).toLogical(
-          await appWindow.scaleFactor(),
-        ).height;
-        const minHeight = Math.min(minimumKioskHeight, monitor.height);
-        await appWindow.setSizeConstraints({
-          minWidth: monitor.width,
-          maxWidth: monitor.width,
-          minHeight,
-          maxHeight: monitor.height,
-        });
-        await appWindow.setSize(
-          new LogicalSize(monitor.width, Math.max(height, minHeight)),
-        );
-        await moveWindow(Position.BottomCenter);
-      } else {
-        await appWindow.setMinSize(new LogicalSize(minimumWidth, minimumHeight));
-        await appWindow.setSize(new LogicalSize(minimumWidth, minimumHeight));
-      }
-    };
-
-    configureWindow().catch(console.error);
-  }, [minimumHeight, minimumKioskHeight, minimumWidth]);
-
-  useEffect(() => {
-    if (!isKiosk) return;
-
-    let disposed = false;
-    let unlisten: (() => void) | undefined;
-    appWindow
-      .onResized(({ payload }) => {
-        const monitor = kioskMonitor.current;
-        if (!monitor || isRestoringWindow.current) return;
-        saveKioskHeight(payload.toLogical(monitor.scaleFactor).height);
-      })
-      .then((stopListening) => {
-        if (disposed) stopListening();
-        else unlisten = stopListening;
-      })
-      .catch(console.error);
-
-    return () => {
-      disposed = true;
-      unlisten?.();
-    };
-  }, [isKiosk]);
-
-  const toggleKiosk = async () => {
-    setIsTogglingKiosk(true);
-    try {
-      if (isKiosk) {
-        const bounds = savedBounds.current;
-        if (!bounds) {
-          throw new Error(
-            "Cannot exit kiosk mode because the previous window size is unavailable",
-          );
-        }
-
-        const monitor = kioskMonitor.current;
-        const kioskBounds = {
-          size: await appWindow.innerSize(),
-          position: await appWindow.outerPosition(),
-        };
-        if (monitor) {
-          saveKioskHeight(kioskBounds.size.toLogical(monitor.scaleFactor).height);
-        }
-        isRestoringWindow.current = true;
-        try {
-          await appWindow.setSizeConstraints({
-            minWidth: minimumWidth,
-            minHeight: minimumHeight,
-          });
-          await appWindow.setSize(bounds.size);
-          await appWindow.setPosition(bounds.position);
-          await appWindow.setResizable(true);
-        } catch (error) {
-          if (monitor) {
-            try {
-              await appWindow.setSizeConstraints({
-                minWidth: monitor.width,
-                maxWidth: monitor.width,
-                minHeight: Math.min(minimumKioskHeight, monitor.height),
-                maxHeight: monitor.height,
-              });
-              await appWindow.setSize(kioskBounds.size);
-              await appWindow.setPosition(kioskBounds.position);
-            } catch (restoreError) {
-              console.error("Could not restore kiosk mode", restoreError);
-            }
-          }
-          throw error;
-        } finally {
-          isRestoringWindow.current = false;
-        }
-
-        kioskMonitor.current = null;
-        savedBounds.current = null;
-        setIsKiosk(false);
-        return;
-      }
-
-      const monitor = await currentMonitor();
-      if (!monitor) {
-        throw new Error(
-          "Cannot enable kiosk mode because the current monitor is unavailable",
-        );
-      }
-
-      const bounds = {
-        size: await appWindow.innerSize(),
-        position: await appWindow.outerPosition(),
-      };
-      const width = monitor.size.width / monitor.scaleFactor;
-      const height = monitor.size.height / monitor.scaleFactor;
-      const minHeight = Math.min(minimumKioskHeight, height);
-      const savedHeight = Number(localStorage.getItem(kioskHeightKey));
-      const kioskHeight =
-        Number.isFinite(savedHeight) && savedHeight > 0
-          ? Math.min(height, Math.max(minHeight, savedHeight))
-          : minHeight;
-
-      try {
-        await appWindow.setSizeConstraints({
-          minWidth: width,
-          maxWidth: width,
-          minHeight,
-          maxHeight: height,
-        });
-        await appWindow.setSize(new LogicalSize(width, kioskHeight));
-        await moveWindow(Position.BottomCenter);
-        await appWindow.setResizable(true);
-      } catch (error) {
-        try {
-          await appWindow.setSizeConstraints({
-            minWidth: minimumWidth,
-            minHeight: minimumHeight,
-          });
-          await appWindow.setSize(bounds.size);
-          await appWindow.setPosition(bounds.position);
-          await appWindow.setResizable(true);
-        } catch (restoreError) {
-          console.error(
-            "Could not restore the window after enabling kiosk mode",
-            restoreError,
-          );
-        }
-        throw error;
-      }
-
-      savedBounds.current = bounds;
-      kioskMonitor.current = { width, height, scaleFactor: monitor.scaleFactor };
-      setIsKiosk(true);
-    } finally {
-      setIsTogglingKiosk(false);
-    }
-  };
+  const {
+    isKiosk,
+    isTogglingKiosk,
+    toggleKiosk,
+    startResizeDragging,
+  } = useKioskMode({
+    width: minimumWidth,
+    height: minimumHeight,
+    kioskHeight: minimumKioskHeight,
+  });
 
   return (
     <main
@@ -280,7 +102,7 @@ function Keyboard() {
           aria-hidden="true"
           onMouseDown={(event) => {
             if (event.button === 0 && !isTogglingKiosk) {
-              appWindow.startResizeDragging("North").catch(console.error);
+              startResizeDragging();
             }
           }}
         >
