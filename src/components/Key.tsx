@@ -38,8 +38,11 @@ interface KeyProps {
   transparency?: number;
   macroIcon?: MacroIconId;
   macroName?: string;
+  labelOverride?: string;
   size?: KeySize;
   labelColor?: string;
+  labelWeight?: number;
+  borderWidth?: number;
   borderColor?: string;
   borderTransparency?: number;
   backgroundColor?: string;
@@ -122,8 +125,11 @@ export const Key = ({
   transparency,
   macroIcon,
   macroName,
+  labelOverride,
   size = { width: 1, height: 1 },
   labelColor,
+  labelWeight,
+  borderWidth = 1,
   borderColor,
   borderTransparency = 0,
   backgroundColor,
@@ -135,6 +141,7 @@ export const Key = ({
   const repeatInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const suppressPointerClick = useRef(false);
   const displayLabel = getKeyDisplayLabel(label);
+  const renderedLabel = labelOverride?.trim() || displayLabel;
 
   const clearRepeat = () => {
     if (repeatDelay.current !== null) clearTimeout(repeatDelay.current);
@@ -147,7 +154,20 @@ export const Key = ({
 
   const keyGapSize = Math.min(MAX_KEY_GAP, Math.max(0, keyGap));
   const MacroIcon = getMacroIcon(macroIcon);
-  const icon = MacroIcon ? <MacroIcon size={ICON_SIZE} /> : getKeyIcon(displayLabel);
+  const icon =
+    labelOverride?.trim() === undefined || labelOverride.trim() === ""
+      ? MacroIcon
+        ? <MacroIcon size={ICON_SIZE} />
+        : getKeyIcon(displayLabel)
+      : null;
+  const resolvedKeyRadius = Math.min(32, Math.max(0, keyRadius));
+  const resolvedLabelSize = Math.min(32, Math.max(6, keyLabelSize));
+  const resolvedBorderWidth = Math.min(8, Math.max(0, borderWidth));
+  const resolvedLabelWeight = [400, 500, 600, 700].includes(
+    labelWeight ?? 500,
+  )
+    ? (labelWeight ?? 500)
+    : 500;
   const buttonStyles = getButtonStyles(
     isPressed,
     isActive,
@@ -174,7 +194,7 @@ export const Key = ({
       ? `color-mix(in srgb, ${baseBorderColor} ${100 - normalizedBorderTransparency}%, transparent)`
       : (borderColor ?? surfaceBorderColor);
   const activeCustomColorStyles =
-    backgroundColor && isActive ? "brightness-125" : "";
+    backgroundColor && (isActive || isPressed) ? "brightness-125" : "";
   const showHoverHighlight =
     isAvailable && (appearance !== "solid" || backgroundColor !== undefined);
 
@@ -189,8 +209,11 @@ export const Key = ({
         width: `calc(100% - ${keyGapSize}px)`,
         height: `${size.height * 100}%`,
         marginInline: "auto",
-        borderRadius: `${keyRadius}px`,
-        fontSize: `${keyLabelSize}px`,
+        borderRadius: `${resolvedKeyRadius}px`,
+        borderWidth: `${resolvedBorderWidth}px`,
+        borderStyle: "solid",
+        fontSize: `${resolvedLabelSize}px`,
+        fontWeight: resolvedLabelWeight,
         ...appearanceStyle,
         borderColor: resolvedBorderColor,
         ...(labelColor ? { color: labelColor } : {}),
@@ -225,20 +248,20 @@ export const Key = ({
         }
         onClick(event);
       }}
-      title={macroName ?? displayLabel}
-      aria-label={macroName ?? displayLabel}
+      title={labelOverride?.trim() || macroName || displayLabel}
+      aria-label={labelOverride?.trim() || macroName || displayLabel}
     >
       {showHoverHighlight && (
         <span
           aria-hidden="true"
           className={`pointer-events-none absolute inset-0 z-0 rounded-[inherit] bg-white/10 transition-opacity ${
-            isActive
+            isActive || isPressed
               ? "opacity-100"
               : "opacity-0 group-hover/button:opacity-100"
           }`}
         />
       )}
-      <span className="relative z-10">{icon ?? displayLabel}</span>
+      <span className="relative z-10">{icon ?? renderedLabel}</span>
     </Button>
   );
 };
