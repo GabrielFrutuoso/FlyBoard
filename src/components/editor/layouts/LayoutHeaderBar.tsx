@@ -1,4 +1,4 @@
-import { Copy, Trash2 } from "lucide-react";
+import { Copy, Info, Trash2 } from "lucide-react";
 import type {
   BoardLayout,
   LayoutAppearance,
@@ -7,7 +7,7 @@ import { surfaceTransparency } from "../../../utils/boardConfig";
 import { SurfaceControls } from "./SurfaceControls";
 
 const smallIconButton =
-  "cursor-pointer rounded-sm p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100";
+  "editor-icon-button cursor-pointer";
 
 interface LayoutHeaderBarProps {
   layout: BoardLayout;
@@ -32,24 +32,28 @@ export function LayoutHeaderBar({
   onDelete,
 }: LayoutHeaderBarProps) {
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-zinc-800 p-2">
-      {editable ? (
-        <input
-          value={layout.name}
-          onChange={(event) => onRename(event.target.value)}
-          className="w-40 rounded-sm border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-100 outline-none focus:border-sky-600"
-          aria-label="Layout name"
-        />
-      ) : (
-        <span className="text-xs font-semibold text-zinc-200">
-          {layout.name}
-        </span>
-      )}
-      {layout.builtin && (
-        <span className="rounded-sm bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-400">
-          Built-in (read-only)
-        </span>
-      )}
+    <div className="flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b border-white/7 px-4 py-2.5">
+      <div className="mr-1 min-w-0">
+        {editable ? (
+          <input
+            value={layout.name}
+            onChange={(event) => onRename(event.target.value)}
+            className="editor-title-input"
+            aria-label="Layout name"
+          />
+        ) : (
+          <p className="text-sm font-semibold text-zinc-100">{layout.name}</p>
+        )}
+        <p className="mt-0.5 flex items-center gap-1 text-[9px] text-zinc-500">
+          {layout.builtin ? (
+            <>
+              <Info size={10} /> Duplicate this template to edit it
+            </>
+          ) : (
+            `${layout.rows.length} rows · changes appear in the preview`
+          )}
+        </p>
+      </div>
       {editable && (
         <SurfaceControls
           title="Layout surface"
@@ -67,7 +71,7 @@ export function LayoutHeaderBar({
       <button
         type="button"
         onClick={onDuplicate}
-        className={smallIconButton}
+        className={`${smallIconButton} hover:bg-white/8`}
         title="Duplicate as new custom layout"
       >
         <Copy size={12} />
@@ -76,14 +80,14 @@ export function LayoutHeaderBar({
         <button
           type="button"
           onClick={onDelete}
-          className={`${smallIconButton} hover:bg-red-900 hover:text-red-100`}
+          className={`${smallIconButton} hover:bg-red-500/15 hover:text-red-300`}
           title="Delete layout"
         >
           <Trash2 size={12} />
         </button>
       )}
-      <span className="ml-auto text-[10px] text-zinc-500">
-        Drag to reorder · Ctrl/⌘-click to multi-select
+      <span className="ml-auto hidden rounded-full border border-white/7 bg-black/10 px-2.5 py-1 text-[9px] text-zinc-500 2xl:inline">
+        Tip: drag keys to reorder · Ctrl/⌘-click to multi-select
       </span>
     </div>
   );
