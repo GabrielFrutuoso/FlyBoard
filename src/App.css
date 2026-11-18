@@ -160,3 +160,128 @@
   position: relative;
   z-index: 1;
 }
+
+.editor-shell {
+  background:
+    radial-gradient(circle at 18% -10%, rgb(14 165 233 / 9%), transparent 28rem),
+    radial-gradient(circle at 90% 110%, rgb(245 158 11 / 6%), transparent 28rem),
+    #09090b;
+}
+
+.editor-titlebar {
+  background: rgb(9 9 11 / 88%);
+  backdrop-filter: blur(18px);
+}
+
+.editor-eyebrow {
+  font-size: 0.5625rem;
+  font-weight: 650;
+  letter-spacing: 0.16em;
+  line-height: 1rem;
+  text-transform: uppercase;
+  color: #71717a;
+}
+
+.editor-input {
+  height: 2rem;
+  width: 100%;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 0.5rem;
+  background: rgb(0 0 0 / 18%);
+  padding: 0 0.625rem;
+  color: #e4e4e7;
+  font-size: 0.6875rem;
+  outline: none;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.editor-input::placeholder {
+  color: #52525b;
+}
+
+.editor-input:hover {
+  border-color: rgb(255 255 255 / 13%);
+}
+
+.editor-input:focus {
+  border-color: rgb(125 211 252 / 50%);
+  background: rgb(0 0 0 / 28%);
+  box-shadow: 0 0 0 3px rgb(56 189 248 / 8%);
+}
+
+.editor-title-input {
+  min-width: 8rem;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 0.375rem;
+  background: transparent;
+  padding: 0.2rem 0.35rem;
+  margin-left: -0.35rem;
+  color: #f4f4f5;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  outline: none;
+}
+
+.editor-title-input:hover {
+  background: rgb(255 255 255 / 4%);
+}
+
+.editor-title-input:focus {
+  border-color: rgb(125 211 252 / 30%);
+  background: rgb(0 0 0 / 20%);
+}
+
+.editor-icon-button {
+  display: inline-flex;
+  width: 1.75rem;
+  height: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  color: #71717a;
+  transition:
+    color 120ms ease,
+    background 120ms ease;
+}
+
+.editor-icon-button:hover {
+  background: rgb(255 255 255 / 6%);
+  color: #e4e4e7;
+}
+
+.editor-secondary-button {
+  border: 1px solid rgb(255 255 255 / 7%);
+  border-radius: 0.5rem;
+  background: rgb(255 255 255 / 3%);
+  padding: 0.375rem 0.625rem;
+  color: #a1a1aa;
+  font-size: 0.625rem;
+}
+
+.editor-secondary-button:hover {
+  border-color: rgb(255 255 255 / 11%);
+  background: rgb(255 255 255 / 6%);
+}
+
+.editor-workspace-card {
+  border: 1px solid rgb(255 255 255 / 7%);
+  border-radius: 1rem;
+  box-shadow:
+    0 24px 70px rgb(0 0 0 / 28%),
+    inset 0 1px 0 rgb(255 255 255 / 3%);
+}
+
+.editor-resize-handle {
+  background: rgb(255 255 255 / 5%);
+  transition: background 120ms ease;
+}
+
+.editor-resize-handle:hover,
+.editor-resize-handle[data-resize-handle-active] {
+  background: rgb(125 211 252 / 45%);
+}
